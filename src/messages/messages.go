@@ -21,7 +21,7 @@ func (e NickExists) Error() string {
 // gRPC messsage service.  Implements protobuf MessageService
 type Messenger struct {
 	pb.UnimplementedMessageServiceServer
-	channels map[string]chan pb.MessageResponse
+	channels map[string]chan *pb.MessageResponse
 	nicks    map[string]string
 }
 
@@ -40,17 +40,20 @@ func (m *Messenger) Stream(srv pb.MessageService_StreamServer) error {
 	}
 	m.nicks[nick] = id.String()
 
-	m.channels[id.String()] = make(chan pb.MessageResponse)
+	m.channels[id.String()] = make(chan *pb.MessageResponse)
 	eChan := make(chan error)
 
 	go func() {
+		msgchan := m.channels[id.String()]
 		for {
-
-			// trunk-ignore(golangci-lint/govet)
-			msg := <-m.channels[id.String()]
-			e := srv.Send(&msg)
-			if e != nil {
-				eChan <- e
+			select {
+			case msg := <-msgchan:
+				e := srv.Send(msg)
+				if e != nil {
+					eChan <- e
+				}
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
@@ -59,9 +62,8 @@ func (m *Messenger) Stream(srv pb.MessageService_StreamServer) error {
 		for {
 			msg, e := srv.Recv()
 			if e != nil {
-				eChan <- e
+				return
 			}
-
 			res := pb.MessageResponse{
 				Message:   msg.Message,
 				Username:  nick,
@@ -69,17 +71,19 @@ func (m *Messenger) Stream(srv pb.MessageService_StreamServer) error {
 			}
 
 			for _, channel := range m.channels {
-				channel <- res
+				channel <- &res
 			}
 		}
 	}()
+
+	<-ctx.Done()
 
 	return nil
 }
 
 func initMessenger() *Messenger {
 	m := Messenger{}
-	m.channels = make(map[string]chan pb.MessageResponse)
+	m.channels = make(map[string]chan *pb.MessageResponse)
 	m.nicks = make(map[string]string)
 	return &m
 }
