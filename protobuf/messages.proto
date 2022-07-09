@@ -1,0 +1,18 @@
+syntax = "proto3";
+option go_package = "fenix/protobuf/pb";
+
+message MessageRequest {
+    string message = 1;
+}
+
+message MessageResponse {
+    string message = 1;
+    string username = 2;
+    int64 timestamp = 3;
+}
+
+service MessageService {
+    rpc Stream(stream MessageRequest) returns (stream MessageResponse);
+}
+
+
