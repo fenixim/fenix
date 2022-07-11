@@ -53,8 +53,11 @@ func (c *Client) Send(d models.JSONModel) {
 }
 
 func (c *Client) listenOnWebsocket() {
-	c.wg.Add(1)
-	defer c.wg.Done()
+	err := c.wg.Add(1, "Client_ListenOnWebsocket__"+c.id)
+	if err != nil {
+		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
+	}
+	defer c.wg.Done("Client_ListenOnWebsocket__" + c.id)
 	defer c.conn.Close()
 
 	for {
@@ -69,8 +72,11 @@ func (c *Client) listenOnWebsocket() {
 }
 
 func (c *Client) listenOnEventLoop() {
-	c.wg.Add(1)
-	defer c.wg.Done()
+	err := c.wg.Add(1, "Client_ListenOnEventLoop__"+c.id)
+	if err != nil {
+		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
+	}
+	defer c.wg.Done("Client_ListenOnEventLoop__" + c.id)
 	defer c.conn.Close()
 
 	select {

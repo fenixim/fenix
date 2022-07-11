@@ -12,10 +12,10 @@ import (
 )
 
 func StartServer() (*utils.WaitGroupCounter, *http.Server) {
-	wg := utils.WaitGroupCounter{}
-	srv := Serve("localhost:8080", &wg)
+	wg := utils.NewWaitGroupCounter()
+	srv := Serve("localhost:8080", wg)
 	wg.Wait()
-	return &wg, srv
+	return wg, srv
 }
 
 func ConnectToServer(t *testing.T) *websocket.Conn {
@@ -33,10 +33,18 @@ func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
 	start := wg.Counter
 	c := ConnectToServer(t)
 	c.Close()
+
 	end := wg.Counter
 
 	if start != end {
-		t.Fail()
+		t.Log("failed, goroutines still running:")
+		wg.Names.Range(
+			func(key, value any) bool {
+				t.Log(key)
+				return true
+			},
+		)
+		t.FailNow()
 	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(3000))
@@ -51,14 +59,19 @@ func TestEnsureAllGoroutinesStopWhenServerExits(t *testing.T) {
 	wg, srv := StartServer()
 	ConnectToServer(t)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(3000))
-	err := srv.Shutdown(ctx)
-	cancel()
+	err := srv.Shutdown(context.TODO())
 	if err != nil {
-		t.Fatalf("Error shutting server down")
+		t.Fatalf("Error shutting server down: %v", err)
 	}
 
 	if wg.Counter != 0 {
+		t.Log("failed, goroutines still running:")
+		wg.Names.Range(
+			func(key, value any) bool {
+				t.Log(key)
+				return true
+			},
+		)
 		t.FailNow()
 	}
 }
