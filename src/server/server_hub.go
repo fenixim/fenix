@@ -27,14 +27,6 @@ type ServerHub struct {
 	mainLoopEvent chan MainLoopEvent
 }
 
-func (hub *ServerHub) NewHub() {
-	hub.clients = make(map[string]*Client)
-	hub.register = make(chan *Client)
-	hub.unregister = make(chan *Client)
-	hub.broadcast = make(chan models.JSONModel)
-	hub.mainLoopEvent = make(chan MainLoopEvent)
-}
-
 func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 	wg.Add(1)
 	defer wg.Done()
@@ -77,7 +69,7 @@ func Serve(addr string, wg *utils.WaitGroupCounter) *http.Server {
 	srv := &http.Server{Addr: addr}
 
 	hub := ServerHub{}
-	hub.NewHub()
+	NewHub()
 
 	go hub.Run(wg)
 
@@ -94,4 +86,14 @@ func Serve(addr string, wg *utils.WaitGroupCounter) *http.Server {
 	}()
 
 	return srv
+}
+
+func NewHub() *ServerHub {
+	hub := ServerHub{}
+	hub.clients = make(map[string]*Client)
+	hub.register = make(chan *Client)
+	hub.unregister = make(chan *Client)
+	hub.broadcast = make(chan models.JSONModel)
+	hub.mainLoopEvent = make(chan MainLoopEvent)
+	return &hub
 }
