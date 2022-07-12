@@ -53,7 +53,6 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 			}
 
 		case e := <-hub.mainLoopEvent:
-			log.Print("MainLoopYay")
 			if e.GetEventType() == "quit" {
 				for _, client := range hub.clients {
 					client.ClientEventLoop <- ClientQuit{}
@@ -64,7 +63,7 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 	}
 }
 
-func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request) {
+func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request, wg *utils.WaitGroupCounter) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -79,13 +78,13 @@ func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &Client{hub: hub, conn: conn, nick: nick, id: uuid.NewString()}
+	client.New(wg)
 	client.hub.register <- client
 }
 
-func Serve(addr string, wg *utils.WaitGroupCounter) *http.Server {
+func Serve(addr string, wg *utils.WaitGroupCounter) (*http.Server, *ServerHub) {
 	srv := &http.Server{Addr: addr}
-	hub := ServerHub{}
-	NewHub()
+	hub := NewHub()
 
 	srv.RegisterOnShutdown(func() {
 		hub.mainLoopEvent <- &QuitMainLoop{}
@@ -94,7 +93,7 @@ func Serve(addr string, wg *utils.WaitGroupCounter) *http.Server {
 	go hub.Run(wg)
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		hub.Upgrade(w, r)
+		hub.Upgrade(w, r, wg)
 	})
 
 	go func() {
@@ -112,15 +111,16 @@ func Serve(addr string, wg *utils.WaitGroupCounter) *http.Server {
 		}
 	}()
 
-	return srv
+	return srv, hub
 }
 
 func NewHub() *ServerHub {
-	hub := ServerHub{}
-	hub.clients = make(map[string]*Client)
-	hub.register = make(chan *Client)
-	hub.unregister = make(chan *Client)
-	hub.broadcast = make(chan models.JSONModel)
-	hub.mainLoopEvent = make(chan MainLoopEvent)
+	hub := ServerHub{
+		clients: make(map[string]*Client),
+		register: make(chan *Client),
+		unregister: make(chan *Client),
+		broadcast: make(chan models.JSONModel),
+		mainLoopEvent: make(chan MainLoopEvent),
+	}
 	return &hub
 }

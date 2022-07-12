@@ -4,6 +4,7 @@ import (
 	"fenix/src/models"
 	"fenix/src/utils"
 	"log"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -33,13 +34,22 @@ type Client struct {
 
 func (c *Client) New(wg *utils.WaitGroupCounter) {
 	c.ClientEventLoop = make(chan ClientEvent)
-	c.conn.SetCloseHandler(c.Close)
+	c.OutgoingMessageQueue = make(chan *models.MessageType)
+	c.IncomingMessagesQueue = make(chan *models.MessageType)
+	
+	c.conn.SetCloseHandler(c.OnClose)
+	err := c.conn.SetReadDeadline(time.Now().Add(time.Duration(5000)))
 
+	if err != nil {
+		log.Printf("error setting read deadline: %v", err)
+	}
+
+	c.wg = wg
 	go c.listenOnEventLoop()
 	go c.listenOnWebsocket()
 }
 
-func (c *Client) Close(code int, text string) error {
+func (c *Client) OnClose(code int, text string) error {
 	c.ClientEventLoop <- ClientQuit{}
 	log.Printf("Client %v closed: Code %v, Reason %v", c.nick, code, text)
 	return nil
@@ -78,6 +88,8 @@ func (c *Client) listenOnEventLoop() {
 	}
 	defer c.wg.Done("Client_ListenOnEventLoop__" + c.id)
 	defer c.conn.Close()
+	// defer c.OnClose(1006, "Server closing socket")
+
 
 	select {
 	case e := <-c.ClientEventLoop:

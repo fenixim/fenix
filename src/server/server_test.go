@@ -11,11 +11,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func StartServer() (*utils.WaitGroupCounter, *http.Server) {
+func StartServer() (*utils.WaitGroupCounter, *http.Server, *ServerHub) {
 	wg := utils.NewWaitGroupCounter()
-	srv := Serve("localhost:8080", wg)
+	srv, hub := Serve("localhost:8080", wg)
 	wg.Wait()
-	return wg, srv
+	return wg, srv, hub
 }
 
 func ConnectToServer(t *testing.T) *websocket.Conn {
@@ -28,16 +28,24 @@ func ConnectToServer(t *testing.T) *websocket.Conn {
 }
 
 func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
-	wg, srv := StartServer()
+	wg, srv, hub := StartServer()
 
-	start := wg.Counter
+	// The server apparently doesnt start serving until a connection is made.
+	// This is just to initialize the server loop and has no effect on the count,
+	// other than making it include the needed server loop
 	c := ConnectToServer(t)
 	c.Close()
+	time.Sleep(10 * time.Millisecond)
 
+	start := wg.Counter
+	c = ConnectToServer(t)
+	c.Close()
+	time.Sleep(10 * time.Millisecond)
 	end := wg.Counter
 
 	if start != end {
 		t.Log("failed, goroutines still running:")
+		t.Logf("Start: %v, End: %v", start, end)
 		wg.Names.Range(
 			func(key, value any) bool {
 				t.Log(key)
@@ -47,19 +55,20 @@ func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
 		t.FailNow()
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(3000))
-	err := srv.Shutdown(ctx)
-	cancel()
+	hub.mainLoopEvent <- &QuitMainLoop{}
+	err := srv.Shutdown(context.TODO())
 	if err != nil {
-		t.Fatalf("Error shutting server down")
+		t.Fatalf("Error shutting server down: %v", err)
 	}
 }
 
 func TestEnsureAllGoroutinesStopWhenServerExits(t *testing.T) {
-	wg, srv := StartServer()
+	wg, srv, hub := StartServer()
 	ConnectToServer(t)
 
+	hub.mainLoopEvent <- &QuitMainLoop{}
 	err := srv.Shutdown(context.TODO())
+
 	if err != nil {
 		t.Fatalf("Error shutting server down: %v", err)
 	}
