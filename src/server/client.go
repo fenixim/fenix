@@ -101,7 +101,7 @@ func (c *Client) listenOnWebsocket() {
 			if handler, ok := c.hub.handlers[t.Type()]; ok {
 				go handler(p, c)
 			}
-			// c.IncomingMessagesQueue <- t
+			c.IncomingMessagesQueue <- t
 		}
 	}
 }

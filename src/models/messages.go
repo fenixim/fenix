@@ -15,6 +15,7 @@ type RecvMessage struct {
 	T       string `json:"type"`
 	Author  string `json:"author"`
 	Message string `json:"msg"`
+	Time    int64 `json:"time"`
 }
 
 func (b RecvMessage) Type() string {

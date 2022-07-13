@@ -163,8 +163,9 @@ func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request, wg *utils.
 
 	client := &Client{hub: hub, conn: conn, Nick: nick, ID: uuid.NewString()}
 	client.New(wg)
-	client.hub.register <- client
+	hub.register <- client
 }
+
 func Init(wg *utils.WaitGroupCounter) *ServerHub {
 	hub := NewHub()
 	go hub.Run(wg)
@@ -196,6 +197,7 @@ func NewHub() *ServerHub {
 		unregister:    make(chan *Client),
 		broadcast:     make(chan models.JSONModel),
 		mainLoopEvent: make(chan MainLoopEvent),
+		handlers:      make(map[string]func([]byte, *Client)),
 	}
 
 	NewMessageHandler(&hub)

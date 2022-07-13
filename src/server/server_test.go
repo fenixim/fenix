@@ -1,7 +1,11 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
+	"fenix/src/models"
 	"fenix/src/utils"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -103,9 +107,9 @@ func TestEnsureClientIsDeletedWhenDisconnected(t *testing.T) {
 		panic(err)
 	}
 
-	c := ConnectToServer(t, u.Host, "Gopher")
+	 ConnectToServer(t, u.Host, "Gopher")
 
-	c.Close()
+	// c.Close()
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -122,5 +126,73 @@ func TestEnsureClientIsDeletedWhenDisconnected(t *testing.T) {
 
 	hub.Shutdown()
 	srv.Close()
+}
 
+func TestEnsureMessagesWork(t *testing.T) {
+	_, srv, hub := StartServer()
+
+	defer srv.Close()
+	defer hub.Shutdown()
+	
+	u, err := url.ParseRequestURI(srv.URL)
+	if err != nil {
+		panic(err)
+	}
+
+	c := ConnectToServer(t, u.Host, "Gopher")
+
+	defer c.Close()
+	
+	log.Printf("clients has %v", len(hub.clients))
+
+	clients := make([]*Client, 0, len(hub.clients))
+	for _, cli := range hub.clients {
+		clients = append(clients, cli)
+	}
+
+	sendMessage := models.SendMessage{T: "send_message", Message: "Hello there"}
+	timeSent := time.Now()
+	err = c.WriteJSON(sendMessage)
+	if err != nil {
+		t.Fatalf("Error writing JSON: %v", err)
+	}
+
+	messageTimeout, cancel  := context.WithTimeout(context.Background(), time.Second * 5)
+
+	select {
+		case <- clients[0].IncomingMessagesQueue:
+			
+		case <- messageTimeout.Done():
+			t.Log("Server did not recieve message in 5 seconds.")
+			t.Fail()
+	}
+	cancel()
+
+	
+	_, b, err := c.ReadMessage()
+
+	if err != nil {
+		t.Fatalf("Error reading message from server: %v", err)
+	}
+
+	var j models.JSONModel
+	json.Unmarshal(b, j)
+	
+	if j.Type() != "recv_msg" {
+		t.Fatalf("%v", b)
+	}
+
+	var recvMsg models.RecvMessage
+	json.Unmarshal(b, recvMsg)
+
+	if recvMsg.Author != clients[0].Nick {
+		t.Logf("%v's message shown as %v", clients[0].Nick, recvMsg.Author)
+		t.Fail()
+	}
+	if recvMsg.Message != sendMessage.Message {
+		t.Logf("Message shown as %v", recvMsg.Message)
+	}
+	if (recvMsg.Time - timeSent.Unix()) > int64(time.Second) {
+		t.Logf("Time diff over 1 sec: %v", (recvMsg.Time - timeSent.Unix()))
+	}
 }
