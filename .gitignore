@@ -14,3 +14,7 @@
 # Dependency directories (remove the comment below to include it)
 vendor/
 .trunk/
+
+# vscode debugging file
+__debug_bin
+.vscode/

@@ -24,6 +24,7 @@ type Client struct {
 	conn            *websocket.Conn
 	nick            string
 	id              string
+	closed          bool
 	ClientEventLoop chan ClientEvent
 
 	OutgoingMessageQueue  chan *models.MessageType
@@ -32,11 +33,24 @@ type Client struct {
 	wg *utils.WaitGroupCounter
 }
 
+// Can be called multiple times.  Should be deferred at end of functions
+func (c *Client) Close(wg_id string) {
+	c.closed = true
+	delete(c.hub.clients, c.id)
+
+	c.conn.Close()
+
+	if wg_id == "" {
+		return
+	}
+	c.wg.Done(wg_id)
+}
+
 func (c *Client) New(wg *utils.WaitGroupCounter) {
 	c.ClientEventLoop = make(chan ClientEvent)
 	c.OutgoingMessageQueue = make(chan *models.MessageType)
 	c.IncomingMessagesQueue = make(chan *models.MessageType)
-	
+
 	c.conn.SetCloseHandler(c.OnClose)
 	err := c.conn.SetReadDeadline(time.Now().Add(time.Duration(5000)))
 
@@ -51,15 +65,9 @@ func (c *Client) New(wg *utils.WaitGroupCounter) {
 
 func (c *Client) OnClose(code int, text string) error {
 	c.ClientEventLoop <- ClientQuit{}
+	c.closed = true
 	log.Printf("Client %v closed: Code %v, Reason %v", c.nick, code, text)
 	return nil
-}
-
-func (c *Client) Send(d models.JSONModel) {
-	err := c.conn.WriteJSON(d.ToJSON())
-	if err != nil {
-		log.Printf("error sending message: %v", err)
-	}
 }
 
 func (c *Client) listenOnWebsocket() {
@@ -67,14 +75,15 @@ func (c *Client) listenOnWebsocket() {
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
-	defer c.wg.Done("Client_ListenOnWebsocket__" + c.id)
-	defer c.conn.Close()
+
+	defer c.Close("Client_ListenOnWebsocket__" + c.id)
 
 	for {
 		var t models.MessageType
 		err := c.conn.ReadJSON(t)
 		if err != nil {
 			c.OutgoingMessageQueue <- models.BadFormat{Message: "Malformed JSON"}.ToJSON()
+			c.closed = true
 			return
 		}
 		c.IncomingMessagesQueue <- &t
@@ -86,21 +95,25 @@ func (c *Client) listenOnEventLoop() {
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
-	defer c.wg.Done("Client_ListenOnEventLoop__" + c.id)
-	defer c.conn.Close()
-	// defer c.OnClose(1006, "Server closing socket")
 
+	defer c.Close("Client_ListenOnEventLoop__" + c.id)
 
 	select {
 	case e := <-c.ClientEventLoop:
 		if e.GetEventType() == "quit" {
+			c.closed = true
 			return
 		}
 
 	case m := <-c.OutgoingMessageQueue:
+		if c.closed {
+			return
+		}
 		err := c.conn.WriteJSON(m)
 		if err != nil {
 			log.Printf("Error sending messsage of type %v to %v: %v", m.MessageType, c.nick, err)
+			c.closed = true
+			return
 		}
 	}
 }

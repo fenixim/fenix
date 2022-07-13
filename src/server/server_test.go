@@ -1,9 +1,8 @@
 package server
 
 import (
-	"context"
 	"fenix/src/utils"
-	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
@@ -11,15 +10,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func StartServer() (*utils.WaitGroupCounter, *http.Server, *ServerHub) {
+func StartServer() (*utils.WaitGroupCounter, *httptest.Server, *ServerHub) {
 	wg := utils.NewWaitGroupCounter()
-	srv, hub := Serve("localhost:8080", wg)
-	wg.Wait()
+	hub := Init(wg)
+
+	srv := httptest.NewServer(HandleFunc(hub, wg))
 	return wg, srv, hub
 }
 
-func ConnectToServer(t *testing.T) *websocket.Conn {
-	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/ws"}
+func ConnectToServer(t *testing.T, host string) *websocket.Conn {
+	u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		t.Fatalf("Error connecting to localhost:8080: %v", err)
@@ -33,12 +33,18 @@ func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
 	// The server apparently doesnt start serving until a connection is made.
 	// This is just to initialize the server loop and has no effect on the count,
 	// other than making it include the needed server loop
-	c := ConnectToServer(t)
+	u, err := url.ParseRequestURI(srv.URL)
+	if err != nil {
+		panic(err)
+	}
+
+	c := ConnectToServer(t, u.Host)
 	c.Close()
 	time.Sleep(10 * time.Millisecond)
 
 	start := wg.Counter
-	c = ConnectToServer(t)
+
+	c = ConnectToServer(t, u.Host)
 	c.Close()
 	time.Sleep(10 * time.Millisecond)
 	end := wg.Counter
@@ -55,23 +61,24 @@ func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
 		t.FailNow()
 	}
 
-	hub.mainLoopEvent <- &QuitMainLoop{}
-	err := srv.Shutdown(context.TODO())
-	if err != nil {
-		t.Fatalf("Error shutting server down: %v", err)
-	}
+	hub.Shutdown()
+	srv.Close()
 }
 
 func TestEnsureAllGoroutinesStopWhenServerExits(t *testing.T) {
 	wg, srv, hub := StartServer()
-	ConnectToServer(t)
 
-	hub.mainLoopEvent <- &QuitMainLoop{}
-	err := srv.Shutdown(context.TODO())
-
+	u, err := url.ParseRequestURI(srv.URL)
 	if err != nil {
-		t.Fatalf("Error shutting server down: %v", err)
+		panic(err)
 	}
+
+	ConnectToServer(t, u.Host)
+
+	hub.Shutdown()
+	srv.Close()
+
+	wg.Wait()
 
 	if wg.Counter != 0 {
 		t.Log("failed, goroutines still running:")

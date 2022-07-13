@@ -10,8 +10,8 @@ func main() {
 	addr := flag.String("addr", ":8080", "http service address")
 	flag.Parse()
 	wg := utils.WaitGroupCounter{}
-
-	server.Serve(*addr, &wg)
+	server.Init(&wg)
+	server.Serve(addr, &wg)
 
 	wg.Wait()
 }
