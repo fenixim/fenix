@@ -2,6 +2,7 @@ package server
 
 import (
 	"fenix/src/utils"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
@@ -18,9 +19,11 @@ func StartServer() (*utils.WaitGroupCounter, *httptest.Server, *ServerHub) {
 	return wg, srv, hub
 }
 
-func ConnectToServer(t *testing.T, host string) *websocket.Conn {
+func ConnectToServer(t *testing.T, host string, nick string) *websocket.Conn {
 	u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	nick_header := make([]string, 1)
+	nick_header[0] = nick
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{"Nick": nick_header})
 	if err != nil {
 		t.Fatalf("Error connecting to localhost:8080: %v", err)
 	}
@@ -38,13 +41,13 @@ func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
 		panic(err)
 	}
 
-	c := ConnectToServer(t, u.Host)
+	c := ConnectToServer(t, u.Host, "Gopher")
 	c.Close()
 	time.Sleep(10 * time.Millisecond)
 
 	start := wg.Counter
 
-	c = ConnectToServer(t, u.Host)
+	c = ConnectToServer(t, u.Host, "Gopher2")
 	c.Close()
 	time.Sleep(10 * time.Millisecond)
 	end := wg.Counter
@@ -73,7 +76,7 @@ func TestEnsureAllGoroutinesStopWhenServerExits(t *testing.T) {
 		panic(err)
 	}
 
-	ConnectToServer(t, u.Host)
+	ConnectToServer(t, u.Host, "Gopher")
 
 	hub.Shutdown()
 	srv.Close()
@@ -90,4 +93,34 @@ func TestEnsureAllGoroutinesStopWhenServerExits(t *testing.T) {
 		)
 		t.FailNow()
 	}
+}
+
+func TestEnsureClientIsDeletedWhenDisconnected(t *testing.T) {
+	_, srv, hub := StartServer()
+
+	u, err := url.ParseRequestURI(srv.URL)
+	if err != nil {
+		panic(err)
+	}
+
+	c := ConnectToServer(t, u.Host, "Gopher")
+
+	c.Close()
+
+	time.Sleep(10 * time.Millisecond)
+
+	keys := make([]string, 0, len(hub.clients))
+	for k := range hub.clients {
+		keys = append(keys, k)
+	}
+
+	if len(keys) != 0 {
+		t.Logf("%v", keys)
+		t.Logf("Did not delete client!")
+		t.Fail()
+	}
+
+	hub.Shutdown()
+	srv.Close()
+
 }
