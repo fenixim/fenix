@@ -85,7 +85,7 @@ func (hub *ServerHub) Broadcast(wg *utils.WaitGroupCounter) (context.Context, co
 			select {
 			case d := <-hub.broadcast:
 				for _, client := range hub.clients {
-					client.OutgoingMessageQueue <- d.ToJSON()
+					client.OutgoingMessageQueue <- d
 				}
 
 			case <-ctx.Done():

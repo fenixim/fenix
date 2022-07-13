@@ -20,15 +20,15 @@ func (c ClientQuit) GetEventType() string {
 }
 
 type Client struct {
-	hub             *ServerHub
-	conn            *websocket.Conn
-	nick            string
-	id              string
-	closed          bool
-	ClientEventLoop chan ClientEvent
+	hub    *ServerHub
+	conn   *websocket.Conn
+	nick   string
+	id     string
+	closed bool
 
-	OutgoingMessageQueue  chan *models.MessageType
-	IncomingMessagesQueue chan *models.MessageType
+	ClientEventLoop       chan ClientEvent
+	OutgoingMessageQueue  chan models.JSONModel
+	IncomingMessagesQueue chan models.JSONModel
 
 	wg *utils.WaitGroupCounter
 }
@@ -48,8 +48,8 @@ func (c *Client) Close(wg_id string) {
 
 func (c *Client) New(wg *utils.WaitGroupCounter) {
 	c.ClientEventLoop = make(chan ClientEvent)
-	c.OutgoingMessageQueue = make(chan *models.MessageType)
-	c.IncomingMessagesQueue = make(chan *models.MessageType)
+	c.OutgoingMessageQueue = make(chan models.JSONModel)
+	c.IncomingMessagesQueue = make(chan models.JSONModel)
 
 	c.conn.SetCloseHandler(c.OnClose)
 	err := c.conn.SetReadDeadline(time.Now().Add(time.Duration(5000)))
@@ -79,14 +79,14 @@ func (c *Client) listenOnWebsocket() {
 	defer c.Close("Client_ListenOnWebsocket__" + c.id)
 
 	for {
-		var t models.MessageType
+		var t models.JSONModel
 		err := c.conn.ReadJSON(t)
 		if err != nil {
-			c.OutgoingMessageQueue <- models.BadFormat{Message: "Malformed JSON"}.ToJSON()
+			c.OutgoingMessageQueue <- models.BadFormat{Message: "Malformed JSON"}
 			c.closed = true
 			return
 		}
-		c.IncomingMessagesQueue <- &t
+		c.IncomingMessagesQueue <- t
 	}
 }
 
@@ -111,7 +111,7 @@ func (c *Client) listenOnEventLoop() {
 		}
 		err := c.conn.WriteJSON(m)
 		if err != nil {
-			log.Printf("Error sending messsage of type %v to %v: %v", m.MessageType, c.nick, err)
+			log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.nick, err)
 			c.closed = true
 			return
 		}

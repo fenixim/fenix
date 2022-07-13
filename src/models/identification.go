@@ -1,28 +1,17 @@
 package models
 
-import (
-	"encoding/json"
-	"log"
-)
-
+// Base interface for all messages.
 type JSONModel interface {
-	ToJSON() *MessageType
+	Type() string
 }
 
-type MessageType struct {
-	MessageType string `json:"type"`
-	Data        string `json:"data"`
-}
-
+// Sent when the websocket message is incorrectly formatted, ie JSON error, missing type, etc.
 type BadFormat struct {
-	Message string `json:"data"`
+	T       string `json:"type"`
+	Message string `json:"msg"`
 }
 
-func (b BadFormat) ToJSON() *MessageType {
-	data, err := json.Marshal(b)
-	if err != nil {
-		log.Printf("Error marshalling JSON, %v", err)
-	}
-
-	return &MessageType{MessageType: "BadFormat", Data: string(data[:])}
+func (b BadFormat) Type() string {
+	return "err_bad_format"
 }
+
