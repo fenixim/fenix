@@ -1,21 +1,20 @@
-package handlers
+package server
 
 import (
 	"encoding/json"
 	"fenix/src/models"
-	"fenix/src/server"
 	"log"
 )
 
 type MessageHandler struct {
-	hub *server.ServerHub
+	hub *ServerHub
 }
 
 func (m *MessageHandler) init() {
 	m.hub.RegisterHandler("send_message", m.HandleSendMessage)
 }
 
-func (m *MessageHandler) HandleSendMessage(b []byte, client *server.Client) {
+func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 	var msg models.SendMessage
 	err := json.Unmarshal(b, &msg)
 	if err != nil {
@@ -32,7 +31,7 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *server.Client) {
 	client.OutgoingMessageQueue <- recv_msg
 }
 
-func NewMessageHandler(hub *server.ServerHub) *MessageHandler {
+func NewMessageHandler(hub *ServerHub) *MessageHandler {
 	m := MessageHandler{hub: hub}
 	m.init()
 	return &m

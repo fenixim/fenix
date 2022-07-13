@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fenix/src/handlers"
 	"fenix/src/models"
 	"fenix/src/utils"
 	"log"
@@ -199,7 +198,7 @@ func NewHub() *ServerHub {
 		mainLoopEvent: make(chan MainLoopEvent),
 	}
 
-	handlers.NewMessageHandler(hub)
+	NewMessageHandler(&hub)
 
 	hub.ctx, hub.Shutdown = context.WithCancel(context.Background())
 
