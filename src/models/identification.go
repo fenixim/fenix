@@ -14,4 +14,3 @@ type BadFormat struct {
 func (b BadFormat) Type() string {
 	return "err_bad_format"
 }
-

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fenix/src/handlers"
 	"fenix/src/models"
 	"fenix/src/utils"
 	"log"
@@ -29,6 +30,11 @@ type ServerHub struct {
 	mainLoopEvent chan MainLoopEvent
 	ctx           context.Context
 	Shutdown      context.CancelFunc
+	handlers      map[string]func([]byte, *Client)
+}
+
+func (hub *ServerHub) RegisterHandler(messageType string, handler func([]byte, *Client)) {
+	hub.handlers[messageType] = handler
 }
 
 func (hub *ServerHub) RegisterClients(wg *utils.WaitGroupCounter) (context.Context, context.CancelFunc) {
@@ -41,7 +47,7 @@ func (hub *ServerHub) RegisterClients(wg *utils.WaitGroupCounter) (context.Conte
 		for {
 			select {
 			case client := <-hub.register:
-				hub.clients[client.id] = client
+				hub.clients[client.ID] = client
 			case <-ctx.Done():
 				wg.Done("RegisterClientsLoop")
 				return
@@ -132,7 +138,7 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 
 	<-hub.ctx.Done()
 	for _, client := range hub.clients {
-		log.Printf("Closing client %v", client.id)
+		log.Printf("Closing client %v", client.ID)
 		client.Close("")
 	}
 	registerCancel()
@@ -156,7 +162,7 @@ func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request, wg *utils.
 		nick = uuid.NewString()
 	}
 
-	client := &Client{hub: hub, conn: conn, nick: nick, id: uuid.NewString()}
+	client := &Client{hub: hub, conn: conn, Nick: nick, ID: uuid.NewString()}
 	client.New(wg)
 	client.hub.register <- client
 }
@@ -192,6 +198,8 @@ func NewHub() *ServerHub {
 		broadcast:     make(chan models.JSONModel),
 		mainLoopEvent: make(chan MainLoopEvent),
 	}
+
+	handlers.NewMessageHandler(hub)
 
 	hub.ctx, hub.Shutdown = context.WithCancel(context.Background())
 

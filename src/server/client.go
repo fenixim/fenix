@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fenix/src/models"
 	"fenix/src/utils"
 	"log"
@@ -22,12 +23,13 @@ func (c ClientQuit) GetEventType() string {
 type Client struct {
 	hub    *ServerHub
 	conn   *websocket.Conn
-	nick   string
-	id     string
-	closed bool
+	Nick   string
+	ID     string
+	Closed bool
 
-	ClientEventLoop       chan ClientEvent
-	OutgoingMessageQueue  chan models.JSONModel
+	ClientEventLoop      chan ClientEvent
+	OutgoingMessageQueue chan models.JSONModel
+	// May take out next version, not currently used.  Would not impact number of goroutines / client
 	IncomingMessagesQueue chan models.JSONModel
 
 	wg *utils.WaitGroupCounter
@@ -35,8 +37,8 @@ type Client struct {
 
 // Can be called multiple times.  Should be deferred at end of functions
 func (c *Client) Close(wg_id string) {
-	c.closed = true
-	delete(c.hub.clients, c.id)
+	c.Closed = true
+	delete(c.hub.clients, c.ID)
 
 	c.conn.Close()
 
@@ -65,54 +67,68 @@ func (c *Client) New(wg *utils.WaitGroupCounter) {
 
 func (c *Client) OnClose(code int, text string) error {
 	c.ClientEventLoop <- ClientQuit{}
-	c.closed = true
-	log.Printf("Client %v closed: Code %v, Reason %v", c.nick, code, text)
+	c.Closed = true
+	log.Printf("Client %v closed: Code %v, Reason %v", c.Nick, code, text)
 	return nil
 }
 
 func (c *Client) listenOnWebsocket() {
-	err := c.wg.Add(1, "Client_ListenOnWebsocket__"+c.id)
+	err := c.wg.Add(1, "Client_ListenOnWebsocket__"+c.ID)
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
 
-	defer c.Close("Client_ListenOnWebsocket__" + c.id)
+	defer c.Close("Client_ListenOnWebsocket__" + c.ID)
 
 	for {
 		var t models.JSONModel
-		err := c.conn.ReadJSON(t)
+		messageType, p, err := c.conn.ReadMessage()
+
 		if err != nil {
-			c.OutgoingMessageQueue <- models.BadFormat{Message: "Malformed JSON"}
-			c.closed = true
+			c.OutgoingMessageQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
 			return
 		}
-		c.IncomingMessagesQueue <- t
+
+		if messageType == websocket.BinaryMessage {
+			err := json.Unmarshal(p, t)
+
+			if err != nil {
+				c.OutgoingMessageQueue <- models.BadFormat{Message: "Malformed JSON"}
+				c.Closed = true
+				return
+			}
+
+			if handler, ok := c.hub.handlers[t.Type()]; ok {
+				go handler(p, c)
+			}
+			// c.IncomingMessagesQueue <- t
+		}
 	}
 }
 
 func (c *Client) listenOnEventLoop() {
-	err := c.wg.Add(1, "Client_ListenOnEventLoop__"+c.id)
+	err := c.wg.Add(1, "Client_ListenOnEventLoop__"+c.ID)
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
 
-	defer c.Close("Client_ListenOnEventLoop__" + c.id)
+	defer c.Close("Client_ListenOnEventLoop__" + c.ID)
 
 	select {
 	case e := <-c.ClientEventLoop:
 		if e.GetEventType() == "quit" {
-			c.closed = true
+			c.Closed = true
 			return
 		}
 
 	case m := <-c.OutgoingMessageQueue:
-		if c.closed {
+		if c.Closed {
 			return
 		}
 		err := c.conn.WriteJSON(m)
 		if err != nil {
-			log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.nick, err)
-			c.closed = true
+			log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.Nick, err)
+			c.Closed = true
 			return
 		}
 	}
