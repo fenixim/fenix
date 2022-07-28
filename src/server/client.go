@@ -5,7 +5,6 @@ import (
 	"fenix/src/models"
 	"fenix/src/utils"
 	"log"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -28,7 +27,7 @@ type Client struct {
 	Closed bool
 
 	ClientEventLoop      chan ClientEvent
-	OutgoingMessageQueue chan models.JSONModel
+	OutgoingPayloadQueue chan models.JSONModel
 	// May take out next version, not currently used.  Would not impact number of goroutines / client
 	IncomingMessagesQueue chan models.JSONModel
 
@@ -50,15 +49,10 @@ func (c *Client) Close(wg_id string) {
 
 func (c *Client) New(wg *utils.WaitGroupCounter) {
 	c.ClientEventLoop = make(chan ClientEvent)
-	c.OutgoingMessageQueue = make(chan models.JSONModel)
+	c.OutgoingPayloadQueue = make(chan models.JSONModel)
 	c.IncomingMessagesQueue = make(chan models.JSONModel)
 
 	c.conn.SetCloseHandler(c.OnClose)
-	err := c.conn.SetReadDeadline(time.Now().Add(time.Duration(5000)))
-
-	if err != nil {
-		log.Printf("error setting read deadline: %v", err)
-	}
 
 	c.wg = wg
 	go c.listenOnEventLoop()
@@ -81,27 +75,27 @@ func (c *Client) listenOnWebsocket() {
 	defer c.Close("Client_ListenOnWebsocket__" + c.ID)
 
 	for {
-		var t models.JSONModel
-		messageType, p, err := c.conn.ReadMessage()
+		var t map[string]interface{}
+		_, p, err := c.conn.ReadMessage()
+
+		// if len(p) == 0 {
+			// continue
+		// }
 
 		if err != nil {
-			c.OutgoingMessageQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
+			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
+			return
+		}
+		err = json.Unmarshal(p, &t)
+
+		if err != nil {
+			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Malformed JSON"}
+			c.Closed = true
 			return
 		}
 
-		if messageType == websocket.BinaryMessage {
-			err := json.Unmarshal(p, t)
-
-			if err != nil {
-				c.OutgoingMessageQueue <- models.BadFormat{Message: "Malformed JSON"}
-				c.Closed = true
-				return
-			}
-
-			if handler, ok := c.hub.handlers[t.Type()]; ok {
-				go handler(p, c)
-			}
-			c.IncomingMessagesQueue <- t
+		if handler, ok := c.hub.handlers[t["type"].(string)]; ok {
+			go handler(p, c)
 		}
 	}
 }
@@ -113,23 +107,24 @@ func (c *Client) listenOnEventLoop() {
 	}
 
 	defer c.Close("Client_ListenOnEventLoop__" + c.ID)
+	for {
+		select {
+		case e := <-c.ClientEventLoop:
+			if e.GetEventType() == "quit" {
+				c.Closed = true
+				return
+			}
 
-	select {
-	case e := <-c.ClientEventLoop:
-		if e.GetEventType() == "quit" {
-			c.Closed = true
-			return
-		}
-
-	case m := <-c.OutgoingMessageQueue:
-		if c.Closed {
-			return
-		}
-		err := c.conn.WriteJSON(m)
-		if err != nil {
-			log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.Nick, err)
-			c.Closed = true
-			return
+		case m := <-c.OutgoingPayloadQueue:
+			if c.Closed {
+				return
+			}
+			err := c.conn.WriteJSON(m)
+			if err != nil {
+				log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.Nick, err)
+				c.Closed = true
+				return
+			}
 		}
 	}
 }

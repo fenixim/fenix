@@ -25,12 +25,12 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 
 	recv_msg := models.RecvMessage{
 		T:       "recv_msg",
-		Time: time.Now().Unix(),
+		Time:    time.Now().Unix(),
 		Author:  client.Nick,
 		Message: msg.Message,
 	}
 
-	client.OutgoingMessageQueue <- recv_msg
+	client.OutgoingPayloadQueue <- recv_msg
 }
 
 func NewMessageHandler(hub *ServerHub) *MessageHandler {
