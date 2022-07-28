@@ -75,15 +75,17 @@ func (c *Client) listenOnWebsocket() {
 	defer c.Close("Client_ListenOnWebsocket__" + c.ID)
 
 	for {
-		var t map[string]interface{}
-		_, p, err := c.conn.ReadMessage()
+		var t struct {
+			Type string `json:"type"`
+		}
+		_, b, err := c.conn.ReadMessage()
 
 
 		if err != nil {
 			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
 			return
 		}
-		err = json.Unmarshal(p, &t)
+		err = json.Unmarshal(b, &t)
 
 		if err != nil {
 			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Malformed JSON"}
@@ -91,8 +93,8 @@ func (c *Client) listenOnWebsocket() {
 			return
 		}
 
-		if handler, ok := c.hub.handlers[t["type"].(string)]; ok {
-			go handler(p, c)
+		if handler, ok := c.hub.handlers[t.Type]; ok {
+			go handler(b, c)
 		}
 	}
 }
