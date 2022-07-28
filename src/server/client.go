@@ -78,9 +78,6 @@ func (c *Client) listenOnWebsocket() {
 		var t map[string]interface{}
 		_, p, err := c.conn.ReadMessage()
 
-		// if len(p) == 0 {
-			// continue
-		// }
 
 		if err != nil {
 			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
