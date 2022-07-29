@@ -30,7 +30,7 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 		Message: msg.Message,
 	}
 
-	client.OutgoingPayloadQueue <- recv_msg
+	m.hub.broadcast <- recv_msg
 }
 
 func NewMessageHandler(hub *ServerHub) *MessageHandler {
