@@ -12,7 +12,7 @@ type MessageHandler struct {
 }
 
 func (m *MessageHandler) init() {
-	m.hub.RegisterHandler("send_message", m.HandleSendMessage)
+	m.hub.RegisterHandler("msg_send", m.HandleSendMessage)
 }
 
 func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
@@ -23,8 +23,8 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 		return
 	}
 
-	recv_msg := models.RecvMessage{
-		T:       "recv_msg",
+	recv_msg := models.BroadcastMessage{
+		T:       "msg_broadcast",
 		Time:    time.Now().Unix(),
 		Author:  client.Nick,
 		Message: msg.Message,

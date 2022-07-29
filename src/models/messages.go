@@ -7,17 +7,17 @@ type SendMessage struct {
 }
 
 func (b SendMessage) Type() string {
-	return "send_message"
+	return "msg_send"
 }
 
 // Sends a message to the clients.
-type RecvMessage struct {
+type BroadcastMessage struct {
 	T       string `json:"type"`
 	Author  string `json:"author"`
 	Message string `json:"msg"`
-	Time    int64 `json:"time"`
+	Time    int64  `json:"time"`
 }
 
-func (b RecvMessage) Type() string {
-	return "recv_message"
+func (b BroadcastMessage) Type() string {
+	return "msg_broadcast"
 }

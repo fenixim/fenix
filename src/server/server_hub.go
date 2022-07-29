@@ -144,7 +144,7 @@ func (hub *ServerHub) Broadcast(wg *utils.WaitGroupCounter) (context.Context, co
 			select {
 			case d := <-hub.broadcast:
 				hub.clients.Range(func(key, value any) bool {
-					value.(Client).OutgoingPayloadQueue <- d
+					value.(*Client).OutgoingPayloadQueue <- d
 					return true
 				})
 
@@ -202,7 +202,7 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 
 	<-hub.ctx.Done()
 	hub.clients.Range(func(key, value any) bool {
-		client := value.(Client)
+		client := value.(*Client)
 		log.Printf("Closing client %v", client.ID)
 		client.Close("")
 		return true
