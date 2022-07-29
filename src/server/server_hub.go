@@ -5,6 +5,7 @@ import (
 	"fenix/src/models"
 	"fenix/src/utils"
 	"log"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -23,7 +24,7 @@ var upgrader = websocket.Upgrader{
 
 // Main server class.  Should be initialized with NewHub() 
 type ServerHub struct {
-	clients       map[string]*Client
+	clients       *sync.Map
 	register      chan *Client
 	unregister    chan *Client
 	broadcast     chan models.JSONModel
@@ -37,7 +38,7 @@ type ServerHub struct {
 // Function to make and start an instance of ServerHub
 func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 	hub := ServerHub{
-		clients:       make(map[string]*Client),
+		clients:       &sync.Map{},
 		register:      make(chan *Client),
 		unregister:    make(chan *Client),
 		broadcast:     make(chan models.JSONModel),
@@ -86,7 +87,7 @@ func (hub *ServerHub) RegisterClients(wg *utils.WaitGroupCounter) (context.Conte
 		for {
 			select {
 			case client := <-hub.register:
-				hub.clients[client.ID] = client
+				hub.clients.Store(client.ID, client)
 				hub.CallCallbackIfExists("RegisterClient", []interface{}{client})
 
 			case <-ctx.Done():
@@ -142,9 +143,11 @@ func (hub *ServerHub) Broadcast(wg *utils.WaitGroupCounter) (context.Context, co
 		for {
 			select {
 			case d := <-hub.broadcast:
-				for _, client := range hub.clients {
-					client.OutgoingPayloadQueue <- d
-				}
+				hub.clients.Range(func(key, value any) bool {
+					value.(Client).OutgoingPayloadQueue <- d
+					return true
+				})
+
 				hub.CallCallbackIfExists("BroadcastPayload", []interface{}{d})
 
 			case <-ctx.Done():
@@ -198,10 +201,13 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 	}
 
 	<-hub.ctx.Done()
-	for _, client := range hub.clients {
+	hub.clients.Range(func(key, value any) bool {
+		client := value.(Client)
 		log.Printf("Closing client %v", client.ID)
 		client.Close("")
-	}
+		return true
+	})
+
 	registerCancel()
 	unregisterCancel()
 	broadcastCancel()

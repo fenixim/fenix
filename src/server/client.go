@@ -19,6 +19,7 @@ func (c ClientQuit) GetEventType() string {
 	return "quit"
 }
 
+// Representation of the client for the server.  Spawns its own goroutines for message processing.
 type Client struct {
 	hub    *ServerHub
 	conn   *websocket.Conn
@@ -28,8 +29,6 @@ type Client struct {
 
 	ClientEventLoop      chan ClientEvent
 	OutgoingPayloadQueue chan models.JSONModel
-	// May take out next version, not currently used.  Would not impact number of goroutines / client
-	IncomingMessagesQueue chan models.JSONModel
 
 	wg *utils.WaitGroupCounter
 }
@@ -37,8 +36,8 @@ type Client struct {
 // Can be called multiple times.  Should be deferred at end of functions
 func (c *Client) Close(wg_id string) {
 	c.Closed = true
-	delete(c.hub.clients, c.ID)
-
+	c.hub.clients.Delete(c.ID)
+	
 	c.conn.Close()
 
 	if wg_id == "" {
@@ -50,7 +49,6 @@ func (c *Client) Close(wg_id string) {
 func (c *Client) New(wg *utils.WaitGroupCounter) {
 	c.ClientEventLoop = make(chan ClientEvent)
 	c.OutgoingPayloadQueue = make(chan models.JSONModel)
-	c.IncomingMessagesQueue = make(chan models.JSONModel)
 
 	c.conn.SetCloseHandler(c.OnClose)
 
@@ -85,6 +83,7 @@ func (c *Client) listenOnWebsocket() {
 			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
 			return
 		}
+
 		err = json.Unmarshal(b, &t)
 
 		if err != nil {

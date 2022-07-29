@@ -122,10 +122,12 @@ func TestEnsureClientIsDeletedWhenDisconnected(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	keys := make([]string, 0, len(hub.clients))
-	for k := range hub.clients {
-		keys = append(keys, k)
-	}
+	keys := make([]any, 0)
+
+	hub.clients.Range(func(key, value any) bool {
+		keys = append(keys, key)
+		return true
+	})
 
 	if len(keys) != 0 {
 		t.Logf("%v", keys)
@@ -157,10 +159,11 @@ func TestRecievePayloadOnWebsocket(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	clients := make([]*Client, 0, len(hub.clients))
-	for _, v := range hub.clients {
-		clients = append(clients, v)
-	}
+	clients := make([]*Client, 0)
+	hub.clients.Range(func(key, value any) bool {
+		clients = append(clients, value.(*Client))
+		return true
+	})
 
 	client := clients[0]
 
