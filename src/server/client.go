@@ -37,7 +37,7 @@ type Client struct {
 func (c *Client) Close(wg_id string) {
 	c.Closed = true
 	c.hub.clients.Delete(c.ID)
-	
+
 	c.conn.Close()
 
 	if wg_id == "" {
@@ -78,7 +78,6 @@ func (c *Client) listenOnWebsocket() {
 		}
 		_, b, err := c.conn.ReadMessage()
 
-
 		if err != nil {
 			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
 			return
@@ -92,7 +91,7 @@ func (c *Client) listenOnWebsocket() {
 			return
 		}
 
-		if handler, ok := c.hub.handlers[t.Type]; ok {
+		if handler, ok := c.hub.Handlers[t.Type]; ok {
 			go handler(b, c)
 		}
 	}

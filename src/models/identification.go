@@ -17,11 +17,11 @@ func (b BadFormat) Type() string {
 
 // Used to obtain your own client ID
 type WhoAmI struct {
-	T       string `json:"type"`
-	ID      string `json:"id"`
-	Nick    string `json:"nick"`
-
+	T    string `json:"type"`
+	ID   string `json:"id"`
+	Nick string `json:"nick"`
 }
+
 func (b WhoAmI) Type() string {
 	return "whoami"
 }

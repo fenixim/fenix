@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ func StartServer() (*utils.WaitGroupCounter, *httptest.Server, *ServerHub) {
 	return wg, srv, hub
 }
 
-func ConnectToServer(t *testing.T, host string, nick string) *websocket.Conn {
+func mustConnectToServer(t *testing.T, host string, nick string) *websocket.Conn {
 	u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
 	nick_header := make([]string, 1)
 	nick_header[0] = nick
@@ -32,7 +33,7 @@ func ConnectToServer(t *testing.T, host string, nick string) *websocket.Conn {
 	return c
 }
 
-func Prepare() (*utils.WaitGroupCounter, *httptest.Server, *ServerHub, string){
+func Prepare() (*utils.WaitGroupCounter, *httptest.Server, *ServerHub, string) {
 	wg, srv, hub := StartServer()
 
 	// The server apparently doesnt start serving until a connection is made.
@@ -45,14 +46,14 @@ func Prepare() (*utils.WaitGroupCounter, *httptest.Server, *ServerHub, string){
 	return wg, srv, hub, u.Host
 }
 
-func SendOnWebsocket(conn *websocket.Conn, payload models.JSONModel, t *testing.T) {
+func sendOnWebsocket(conn *websocket.Conn, payload models.JSONModel, t *testing.T) {
 	err := conn.WriteJSON(payload)
 	if err != nil {
 		t.Fatalf("Error sending payload: %v", err)
 	}
 }
 
-func RecvOnWebsocket(conn *websocket.Conn, t *testing.T) ([]byte) {
+func recvOnWebsocket(conn *websocket.Conn, t *testing.T) []byte {
 	_, b, err := conn.ReadMessage()
 	if err != nil {
 		t.Fatalf("Error recieving message: %v", err)
@@ -63,13 +64,13 @@ func RecvOnWebsocket(conn *websocket.Conn, t *testing.T) ([]byte) {
 func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
 	wg, srv, hub, addr := Prepare()
 
-	c := ConnectToServer(t, addr, "Gopher")
+	c := mustConnectToServer(t, addr, "Gopher")
 	c.Close()
 	time.Sleep(10 * time.Millisecond)
 
 	start := wg.Counter
 
-	c = ConnectToServer(t, addr, "Gopher2")
+	c = mustConnectToServer(t, addr, "Gopher2")
 	c.Close()
 	time.Sleep(10 * time.Millisecond)
 	end := wg.Counter
@@ -92,7 +93,7 @@ func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
 
 func TestEnsureAllGoroutinesStopWhenServerExits(t *testing.T) {
 	wg, srv, hub, addr := Prepare()
-	ConnectToServer(t, addr, "Gopher")
+	mustConnectToServer(t, addr, "Gopher")
 
 	hub.Shutdown()
 	srv.Close()
@@ -117,7 +118,7 @@ func TestEnsureClientIsDeletedWhenDisconnected(t *testing.T) {
 	defer hub.Shutdown()
 	defer srv.Close()
 
-	c := ConnectToServer(t, addr, "Gopher")
+	c := mustConnectToServer(t, addr, "Gopher")
 	c.Close()
 
 	time.Sleep(10 * time.Millisecond)
@@ -142,10 +143,10 @@ func TestSendPayloadOnWebsocket(t *testing.T) {
 	defer hub.Shutdown()
 	defer srv.Close()
 
-	conn := ConnectToServer(t, addr, "Gopher")
+	conn := mustConnectToServer(t, addr, "Gopher")
 	defer conn.Close()
 
-	SendOnWebsocket(conn, models.SendMessage{T: "send_message", Message: "Hello world!"}, t)
+	sendOnWebsocket(conn, models.SendMessage{T: "send_message", Message: "Hello world!"}, t)
 }
 
 func TestRecievePayloadOnWebsocket(t *testing.T) {
@@ -154,7 +155,7 @@ func TestRecievePayloadOnWebsocket(t *testing.T) {
 	defer hub.Shutdown()
 	defer srv.Close()
 
-	conn := ConnectToServer(t, addr, "Gopher")
+	conn := mustConnectToServer(t, addr, "Gopher")
 	defer conn.Close()
 
 	time.Sleep(10 * time.Millisecond)
@@ -167,16 +168,15 @@ func TestRecievePayloadOnWebsocket(t *testing.T) {
 
 	client := clients[0]
 
-	hub.handlers["whoami"](make([]byte, 0), client)
+	hub.Handlers["whoami"](make([]byte, 0), client)
 
 	w := &models.WhoAmI{}
-	b := RecvOnWebsocket(conn, t)
+	b := recvOnWebsocket(conn, t)
 	err := json.Unmarshal(b, w)
 	if err != nil {
 		t.FailNow()
 	}
 }
-
 
 func TestWhoAmI(t *testing.T) {
 	_, srv, hub, addr := Prepare()
@@ -184,19 +184,70 @@ func TestWhoAmI(t *testing.T) {
 	defer srv.Close()
 	defer hub.Shutdown()
 
-	conn := ConnectToServer(t, addr, "Gopher")
+	conn := mustConnectToServer(t, addr, "Gopher")
 
 	defer conn.Close()
-	
-	SendOnWebsocket(conn, models.WhoAmI{T: "whoami"}, t)
+
+	sendOnWebsocket(conn, models.WhoAmI{T: "whoami"}, t)
 
 	var w models.WhoAmI
-	b := RecvOnWebsocket(conn, t)
+	b := recvOnWebsocket(conn, t)
 	err := json.Unmarshal(b, &w)
 	if err != nil {
 		t.FailNow()
 	}
 	if w.Nick != "Gopher" || w.ID == "" {
 		t.Fatalf("nick: %v, id: %v", w.Nick, w.ID)
+	}
+}
+
+func createMessage(msg string) *models.SendMessage {
+	return &models.SendMessage{
+		T:       models.SendMessage{}.Type(),
+		Message: msg,
+	}
+}
+
+func mustRecvMessage(t *testing.T, ws *websocket.Conn) string {
+	t.Helper()
+
+	var recvd models.BroadcastMessage
+	_, b, _ := ws.ReadMessage()
+	err := json.Unmarshal(b, &recvd)
+
+	if err != nil {
+		t.Fatalf("Error unmarshalling response %v", err)
+	}
+
+	return recvd.Message
+}
+
+func makeServerHub() *ServerHub {
+	wg := &utils.WaitGroupCounter{}
+	return NewHub(wg)
+}
+
+func TestMessages(t *testing.T) {
+	messageTests := []string{"yay", "hax"}
+
+	for _, tt := range messageTests {
+		t.Run(tt, func(t *testing.T) {
+			hub := makeServerHub()
+			server := httptest.NewServer(HandleFunc(hub, hub.Wg))
+			ws := mustConnectToServer(t, strings.TrimPrefix(server.URL, "http://"), "")
+
+			defer hub.Shutdown()
+			defer server.Close()
+			defer ws.Close()
+
+			msg := createMessage(tt)
+			sendOnWebsocket(ws, msg, t)
+
+			got := mustRecvMessage(t, ws)
+
+			if got != tt {
+				t.Errorf("got %v want %v", got, tt)
+			}
+		})
 	}
 }

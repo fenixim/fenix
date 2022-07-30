@@ -22,7 +22,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-// Main server class.  Should be initialized with NewHub() 
+// Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
 	clients       *sync.Map
 	register      chan *Client
@@ -31,8 +31,9 @@ type ServerHub struct {
 	mainLoopEvent chan MainLoopEvent
 	ctx           context.Context
 	Shutdown      context.CancelFunc
-	handlers      map[string]func([]byte, *Client)
+	Handlers      map[string]func([]byte, *Client)
 	callbacks     map[string]func([]interface{})
+	Wg            *utils.WaitGroupCounter
 }
 
 // Function to make and start an instance of ServerHub
@@ -43,10 +44,11 @@ func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 		unregister:    make(chan *Client),
 		broadcast:     make(chan models.JSONModel),
 		mainLoopEvent: make(chan MainLoopEvent),
-		handlers:      make(map[string]func([]byte, *Client)),
+		Handlers:      make(map[string]func([]byte, *Client)),
 		callbacks:     make(map[string]func([]interface{})),
+		Wg:            wg,
 	}
-	
+
 	NewMessageHandler(&hub)
 	hub.RegisterHandler("whoami", hub.WhoAmI)
 
@@ -59,7 +61,7 @@ func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 
 // Registers a message handler to be called when a type of message is recieved.
 func (hub *ServerHub) RegisterHandler(messageType string, handler func([]byte, *Client)) {
-	hub.handlers[messageType] = handler
+	hub.Handlers[messageType] = handler
 }
 
 // Registers a callback to be called when event happens.  If a function calls a callback, it should be shown in a docstring.
@@ -175,7 +177,7 @@ func (hub *ServerHub) MainLoopEvents(wg *utils.WaitGroupCounter) (context.Contex
 			select {
 			case e := <-hub.mainLoopEvent:
 				hub.CallCallbackIfExists("MainLoopEvent", []interface{}{e})
-				
+
 			case <-ctx.Done():
 				wg.Done("MainEventLoop")
 				hub.CallCallbackIfExists("MainEventLoopDone", []interface{}{})
@@ -250,7 +252,7 @@ func (hub *ServerHub) WhoAmI(_ []byte, c *Client) {
 func Serve(addr string, wg *utils.WaitGroupCounter, hub *ServerHub) {
 	srv := http.Server{
 		Handler: HandleFunc(hub, wg),
-		Addr: addr,
+		Addr:    addr,
 	}
 
 	defer wg.Done("ServerHub_ListenAndServe")
