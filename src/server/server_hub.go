@@ -22,13 +22,17 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-// Main server class.  Should be initialized with NewHub()
-type ServerHub struct {
-	clients       *sync.Map
+type hubChannels struct {
 	register      chan *Client
 	unregister    chan *Client
 	broadcast     chan models.JSONModel
 	mainLoopEvent chan MainLoopEvent
+}
+
+// Main server class.  Should be initialized with NewHub()
+type ServerHub struct {
+	clients       *sync.Map
+	HubChannels   *hubChannels
 	ctx           context.Context
 	Shutdown      context.CancelFunc
 	Handlers      map[string]func([]byte, *Client)
@@ -40,10 +44,12 @@ type ServerHub struct {
 func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 	hub := ServerHub{
 		clients:       &sync.Map{},
-		register:      make(chan *Client),
-		unregister:    make(chan *Client),
-		broadcast:     make(chan models.JSONModel),
-		mainLoopEvent: make(chan MainLoopEvent),
+		HubChannels:   &hubChannels{
+			register:      make(chan *Client),
+			unregister:    make(chan *Client),
+			broadcast:     make(chan models.JSONModel),
+			mainLoopEvent: make(chan MainLoopEvent),
+		},
 		Handlers:      make(map[string]func([]byte, *Client)),
 		callbacks:     make(map[string]func([]interface{})),
 		Wg:            wg,
@@ -88,7 +94,7 @@ func (hub *ServerHub) RegisterClients(wg *utils.WaitGroupCounter) (context.Conte
 	go func() {
 		for {
 			select {
-			case client := <-hub.register:
+			case client := <-hub.HubChannels.register:
 				hub.clients.Store(client.ID, client)
 				hub.CallCallbackIfExists("RegisterClient", []interface{}{client})
 
@@ -115,7 +121,7 @@ func (hub *ServerHub) UnregisterClients(wg *utils.WaitGroupCounter) (context.Con
 	go func() {
 		for {
 			select {
-			case client := <-hub.unregister:
+			case client := <-hub.HubChannels.unregister:
 				client.Close("")
 				hub.CallCallbackIfExists("UnregisterClient", []interface{}{client})
 
@@ -144,7 +150,7 @@ func (hub *ServerHub) Broadcast(wg *utils.WaitGroupCounter) (context.Context, co
 	go func() {
 		for {
 			select {
-			case d := <-hub.broadcast:
+			case d := <-hub.HubChannels.broadcast:
 				hub.clients.Range(func(key, value any) bool {
 					value.(*Client).OutgoingPayloadQueue <- d
 					return true
@@ -175,7 +181,7 @@ func (hub *ServerHub) MainLoopEvents(wg *utils.WaitGroupCounter) (context.Contex
 	go func() {
 		for {
 			select {
-			case e := <-hub.mainLoopEvent:
+			case e := <-hub.HubChannels.mainLoopEvent:
 				hub.CallCallbackIfExists("MainLoopEvent", []interface{}{e})
 
 			case <-ctx.Done():
@@ -235,7 +241,7 @@ func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request, wg *utils.
 
 	client := &Client{hub: hub, conn: conn, Nick: nick, ID: uuid.NewString()}
 	client.New(wg)
-	hub.register <- client
+	hub.HubChannels.register <- client
 }
 
 // Handler for whoami requests
