@@ -1,28 +1,27 @@
 package models
 
-import (
-	"encoding/json"
-	"log"
-)
-
+// Base interface for all messages.
 type JSONModel interface {
-	ToJSON() *MessageType
+	Type() string
 }
 
-type MessageType struct {
-	MessageType string `json:"type"`
-	Data        string `json:"data"`
-}
-
+// Sent when the websocket message is incorrectly formatted, ie JSON error, missing type, etc.
 type BadFormat struct {
-	Message string `json:"data"`
+	T       string `json:"type"`
+	Message string `json:"msg"`
 }
 
-func (b BadFormat) ToJSON() *MessageType {
-	data, err := json.Marshal(b)
-	if err != nil {
-		log.Printf("Error marshalling JSON, %v", err)
-	}
+func (b BadFormat) Type() string {
+	return "err_bad_format"
+}
 
-	return &MessageType{MessageType: "BadFormat", Data: string(data[:])}
+// Used to obtain your own client ID
+type WhoAmI struct {
+	T    string `json:"type"`
+	ID   string `json:"id"`
+	Nick string `json:"nick"`
+}
+
+func (b WhoAmI) Type() string {
+	return "whoami"
 }

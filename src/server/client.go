@@ -1,10 +1,10 @@
 package server
 
 import (
+	"encoding/json"
 	"fenix/src/models"
 	"fenix/src/utils"
 	"log"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -19,24 +19,24 @@ func (c ClientQuit) GetEventType() string {
 	return "quit"
 }
 
+// Representation of the client for the server.  Spawns its own goroutines for message processing.
 type Client struct {
-	hub             *ServerHub
-	conn            *websocket.Conn
-	nick            string
-	id              string
-	closed          bool
-	ClientEventLoop chan ClientEvent
+	hub    *ServerHub
+	conn   *websocket.Conn
+	Nick   string
+	ID     string
+	Closed bool
 
-	OutgoingMessageQueue  chan *models.MessageType
-	IncomingMessagesQueue chan *models.MessageType
+	ClientEventLoop      chan ClientEvent
+	OutgoingPayloadQueue chan models.JSONModel
 
 	wg *utils.WaitGroupCounter
 }
 
 // Can be called multiple times.  Should be deferred at end of functions
 func (c *Client) Close(wg_id string) {
-	c.closed = true
-	delete(c.hub.clients, c.id)
+	c.Closed = true
+	c.hub.clients.Delete(c.ID)
 
 	c.conn.Close()
 
@@ -48,15 +48,9 @@ func (c *Client) Close(wg_id string) {
 
 func (c *Client) New(wg *utils.WaitGroupCounter) {
 	c.ClientEventLoop = make(chan ClientEvent)
-	c.OutgoingMessageQueue = make(chan *models.MessageType)
-	c.IncomingMessagesQueue = make(chan *models.MessageType)
+	c.OutgoingPayloadQueue = make(chan models.JSONModel)
 
 	c.conn.SetCloseHandler(c.OnClose)
-	err := c.conn.SetReadDeadline(time.Now().Add(time.Duration(5000)))
-
-	if err != nil {
-		log.Printf("error setting read deadline: %v", err)
-	}
 
 	c.wg = wg
 	go c.listenOnEventLoop()
@@ -65,55 +59,69 @@ func (c *Client) New(wg *utils.WaitGroupCounter) {
 
 func (c *Client) OnClose(code int, text string) error {
 	c.ClientEventLoop <- ClientQuit{}
-	c.closed = true
-	log.Printf("Client %v closed: Code %v, Reason %v", c.nick, code, text)
+	c.Closed = true
+	log.Printf("Client %v closed: Code %v, Reason %v", c.Nick, code, text)
 	return nil
 }
 
 func (c *Client) listenOnWebsocket() {
-	err := c.wg.Add(1, "Client_ListenOnWebsocket__"+c.id)
+	err := c.wg.Add(1, "Client_ListenOnWebsocket__"+c.ID)
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
 
-	defer c.Close("Client_ListenOnWebsocket__" + c.id)
+	defer c.Close("Client_ListenOnWebsocket__" + c.ID)
 
 	for {
-		var t models.MessageType
-		err := c.conn.ReadJSON(t)
+		var t struct {
+			Type string `json:"type"`
+		}
+		_, b, err := c.conn.ReadMessage()
+
 		if err != nil {
-			c.OutgoingMessageQueue <- models.BadFormat{Message: "Malformed JSON"}.ToJSON()
-			c.closed = true
+			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
 			return
 		}
-		c.IncomingMessagesQueue <- &t
+
+		err = json.Unmarshal(b, &t)
+
+		if err != nil {
+			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Malformed JSON"}
+			c.Closed = true
+			return
+		}
+
+		if handler, ok := c.hub.Handlers[t.Type]; ok {
+			go handler(b, c)
+		}
 	}
 }
 
 func (c *Client) listenOnEventLoop() {
-	err := c.wg.Add(1, "Client_ListenOnEventLoop__"+c.id)
+	err := c.wg.Add(1, "Client_ListenOnEventLoop__"+c.ID)
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
 
-	defer c.Close("Client_ListenOnEventLoop__" + c.id)
+	defer c.Close("Client_ListenOnEventLoop__" + c.ID)
+	for {
+		select {
+		case e := <-c.ClientEventLoop:
+			if e.GetEventType() == "quit" {
+				c.Closed = true
+				return
+			}
 
-	select {
-	case e := <-c.ClientEventLoop:
-		if e.GetEventType() == "quit" {
-			c.closed = true
-			return
-		}
-
-	case m := <-c.OutgoingMessageQueue:
-		if c.closed {
-			return
-		}
-		err := c.conn.WriteJSON(m)
-		if err != nil {
-			log.Printf("Error sending messsage of type %v to %v: %v", m.MessageType, c.nick, err)
-			c.closed = true
-			return
+		case m := <-c.OutgoingPayloadQueue:
+			if c.Closed {
+				return
+			}
+			err := c.conn.WriteJSON(m)
+			if err != nil {
+				log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.Nick, err)
+				c.Closed = true
+				return
+			}
 		}
 	}
 }
