@@ -23,8 +23,6 @@ var upgrader = websocket.Upgrader{
 }
 
 type hubChannels struct {
-	register      chan *Client
-	unregister    chan *Client
 	broadcast     chan models.JSONModel
 	mainLoopEvent chan MainLoopEvent
 }
@@ -45,8 +43,6 @@ func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 	hub := ServerHub{
 		clients:       &sync.Map{},
 		HubChannels:   &hubChannels{
-			register:      make(chan *Client),
-			unregister:    make(chan *Client),
 			broadcast:     make(chan models.JSONModel),
 			mainLoopEvent: make(chan MainLoopEvent),
 		},
@@ -56,7 +52,7 @@ func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 	}
 
 	NewMessageHandler(&hub)
-	hub.RegisterHandler("whoami", hub.WhoAmI)
+	NewIdentificationHandler(&hub)
 
 	hub.ctx, hub.Shutdown = context.WithCancel(context.Background())
 
@@ -80,61 +76,6 @@ func (hub *ServerHub) CallCallbackIfExists(name string, args []interface{}) {
 	if callback, ok := hub.callbacks[name]; ok {
 		callback(args)
 	}
-}
-
-// Loop to register clients.
-// Will call callback "RegisterClient" when a request to register a client is made
-// Will call callback "RegisterClientLoopDone" when this finishes.
-func (hub *ServerHub) RegisterClients(wg *utils.WaitGroupCounter) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	err := wg.Add(1, "RegisterClientsLoop")
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		for {
-			select {
-			case client := <-hub.HubChannels.register:
-				hub.clients.Store(client.ID, client)
-				hub.CallCallbackIfExists("RegisterClient", []interface{}{client})
-
-			case <-ctx.Done():
-				wg.Done("RegisterClientsLoop")
-				hub.CallCallbackIfExists("RegisterClientLoopDone", []interface{}{})
-				return
-			}
-		}
-	}()
-
-	return ctx, cancel
-}
-
-// Loop to unregister clients.
-// Will call callback "UnregisterClient" when a request to unregister a client is made
-// Will call callback "UnregisterClientLoopDone" when this finishes.
-func (hub *ServerHub) UnregisterClients(wg *utils.WaitGroupCounter) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	err := wg.Add(1, "UnregisterClientsLoop")
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		for {
-			select {
-			case client := <-hub.HubChannels.unregister:
-				client.Close("")
-				hub.CallCallbackIfExists("UnregisterClient", []interface{}{client})
-
-			case <-ctx.Done():
-				wg.Done("UnregisterClientsLoop")
-				hub.CallCallbackIfExists("UnregisterClientLoopDone", []interface{}{})
-
-				return
-			}
-		}
-	}()
-
-	return ctx, cancel
 }
 
 // Loop to broadcast payload to all clients.
@@ -198,8 +139,6 @@ func (hub *ServerHub) MainLoopEvents(wg *utils.WaitGroupCounter) (context.Contex
 // Starts all goroutines for server to run.
 // Will stop all goroutines when hub.Shutdown() is called.
 func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
-	_, registerCancel := hub.RegisterClients(wg)
-	_, unregisterCancel := hub.UnregisterClients(wg)
 	_, broadcastCancel := hub.Broadcast(wg)
 	_, mainLoopEventsCancel := hub.MainLoopEvents(wg)
 
@@ -216,8 +155,6 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 		return true
 	})
 
-	registerCancel()
-	unregisterCancel()
 	broadcastCancel()
 	mainLoopEventsCancel()
 	wg.Done("ServerHub_Run")
@@ -241,17 +178,7 @@ func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request, wg *utils.
 
 	client := &Client{hub: hub, conn: conn, Nick: nick, ID: uuid.NewString()}
 	client.New(wg)
-	hub.HubChannels.register <- client
-}
-
-// Handler for whoami requests
-func (hub *ServerHub) WhoAmI(_ []byte, c *Client) {
-	c.OutgoingPayloadQueue <- models.WhoAmI{
-		T:    "whoami",
-		ID:   c.ID,
-		Nick: c.Nick,
-	}
-	hub.CallCallbackIfExists("WhoAmI", []interface{}{c})
+	hub.clients.Store(client.ID, client)
 }
 
 // Serves http server on addr.

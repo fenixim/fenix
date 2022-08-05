@@ -38,3 +38,25 @@ func NewMessageHandler(hub *ServerHub) *MessageHandler {
 	m.init()
 	return &m
 }
+
+type IdentificationHandler struct {
+	hub *ServerHub
+}
+
+func (i *IdentificationHandler) init()  {
+	i.hub.RegisterHandler("whoami", i.HandleWhoAmI)
+}
+
+func (i *IdentificationHandler) HandleWhoAmI(_ []byte, c *Client) {
+	c.OutgoingPayloadQueue <- models.WhoAmI{
+		T:    "whoami",
+		ID:   c.ID,
+		Nick: c.Nick,
+	}
+	i.hub.CallCallbackIfExists("WhoAmI", []interface{}{c})
+}
+
+func NewIdentificationHandler(hub *ServerHub) {
+	i := IdentificationHandler{hub: hub}
+	i.init()
+}
