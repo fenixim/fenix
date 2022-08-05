@@ -79,7 +79,7 @@ func TestEnsureAllGoroutinesStopWhenClientExits(t *testing.T) {
 		t.Log("failed, goroutines still running:")
 		t.Logf("Start: %v, End: %v", start, end)
 		wg.Names.Range(
-			func(key, value any) bool {
+			func(key, value interface{}) bool {
 				t.Log(key)
 				return true
 			},
@@ -103,7 +103,7 @@ func TestEnsureAllGoroutinesStopWhenServerExits(t *testing.T) {
 	if wg.Counter != 0 {
 		t.Log("failed, goroutines still running:")
 		wg.Names.Range(
-			func(key, value any) bool {
+			func(key, value interface{}) bool {
 				t.Log(key)
 				return true
 			},
@@ -123,9 +123,9 @@ func TestEnsureClientIsDeletedWhenDisconnected(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 
-	keys := make([]any, 0)
+	keys := make([]interface{}, 0)
 
-	hub.clients.Range(func(key, value any) bool {
+	hub.clients.Range(func(key, value interface{}) bool {
 		keys = append(keys, key)
 		return true
 	})
@@ -161,7 +161,7 @@ func TestRecievePayloadOnWebsocket(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	clients := make([]*Client, 0)
-	hub.clients.Range(func(key, value any) bool {
+	hub.clients.Range(func(key, value interface{}) bool {
 		clients = append(clients, value.(*Client))
 		return true
 	})

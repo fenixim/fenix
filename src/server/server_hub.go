@@ -29,26 +29,26 @@ type hubChannels struct {
 
 // Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
-	clients       *sync.Map
-	HubChannels   *hubChannels
-	ctx           context.Context
-	Shutdown      context.CancelFunc
-	Handlers      map[string]func([]byte, *Client)
-	callbacks     map[string]func([]interface{})
-	Wg            *utils.WaitGroupCounter
+	clients     *sync.Map
+	HubChannels *hubChannels
+	ctx         context.Context
+	Shutdown    context.CancelFunc
+	Handlers    map[string]func([]byte, *Client)
+	callbacks   map[string]func([]interface{})
+	Wg          *utils.WaitGroupCounter
 }
 
 // Function to make and start an instance of ServerHub
 func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 	hub := ServerHub{
-		clients:       &sync.Map{},
-		HubChannels:   &hubChannels{
+		clients: &sync.Map{},
+		HubChannels: &hubChannels{
 			broadcast:     make(chan models.JSONModel),
 			mainLoopEvent: make(chan MainLoopEvent),
 		},
-		Handlers:      make(map[string]func([]byte, *Client)),
-		callbacks:     make(map[string]func([]interface{})),
-		Wg:            wg,
+		Handlers:  make(map[string]func([]byte, *Client)),
+		callbacks: make(map[string]func([]interface{})),
+		Wg:        wg,
 	}
 
 	NewMessageHandler(&hub)
@@ -92,7 +92,7 @@ func (hub *ServerHub) Broadcast(wg *utils.WaitGroupCounter) (context.Context, co
 		for {
 			select {
 			case d := <-hub.HubChannels.broadcast:
-				hub.clients.Range(func(key, value any) bool {
+				hub.clients.Range(func(key, value interface{}) bool {
 					value.(*Client).OutgoingPayloadQueue <- d
 					return true
 				})
@@ -148,7 +148,7 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 	}
 
 	<-hub.ctx.Done()
-	hub.clients.Range(func(key, value any) bool {
+	hub.clients.Range(func(key, value interface{}) bool {
 		client := value.(*Client)
 		log.Printf("Closing client %v", client.ID)
 		client.Close("")
