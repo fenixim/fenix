@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"fenix/src/models"
 	"fenix/src/utils"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +45,7 @@ func Prepare() (*utils.WaitGroupCounter, *httptest.Server, *ServerHub, string) {
 	return wg, srv, hub, u.Host
 }
 
-func sendOnWebsocket(conn *websocket.Conn, payload websocket_models.JSONModel, t *testing.T) {
+func sendOnWebsocket(conn *websocket.Conn, payload JSONModel, t *testing.T) {
 	err := conn.WriteJSON(payload)
 	if err != nil {
 		t.Fatalf("Error sending payload: %v", err)
@@ -146,7 +145,7 @@ func TestSendPayloadOnWebsocket(t *testing.T) {
 	conn := mustConnectToServer(t, addr, "Gopher")
 	defer conn.Close()
 
-	sendOnWebsocket(conn, websocket_models.SendMessage{T: "send_message", Message: "Hello world!"}, t)
+	sendOnWebsocket(conn, SendMessage{Message: "Hello world!"}, t)
 }
 
 func TestRecievePayloadOnWebsocket(t *testing.T) {
@@ -170,7 +169,7 @@ func TestRecievePayloadOnWebsocket(t *testing.T) {
 
 	hub.Handlers["whoami"](make([]byte, 0), client)
 
-	w := &websocket_models.WhoAmI{}
+	w := &WhoAmI{}
 	b := recvOnWebsocket(conn, t)
 	err := json.Unmarshal(b, w)
 	if err != nil {
@@ -188,9 +187,9 @@ func TestWhoAmI(t *testing.T) {
 
 	defer conn.Close()
 
-	sendOnWebsocket(conn, websocket_models.WhoAmI{T: "whoami"}, t)
+	sendOnWebsocket(conn, WhoAmI{}, t)
 
-	var w websocket_models.WhoAmI
+	var w WhoAmI
 	b := recvOnWebsocket(conn, t)
 	err := json.Unmarshal(b, &w)
 	if err != nil {
@@ -201,9 +200,8 @@ func TestWhoAmI(t *testing.T) {
 	}
 }
 
-func createMessage(msg string) *websocket_models.SendMessage {
-	return &websocket_models.SendMessage{
-		T:       websocket_models.SendMessage{}.Type(),
+func createMessage(msg string) *SendMessage {
+	return &SendMessage{
 		Message: msg,
 	}
 }
@@ -211,7 +209,7 @@ func createMessage(msg string) *websocket_models.SendMessage {
 func mustRecvMessage(t *testing.T, ws *websocket.Conn) string {
 	t.Helper()
 
-	var recvd websocket_models.BroadcastMessage
+	var recvd BroadcastMessage
 	_, b, _ := ws.ReadMessage()
 	err := json.Unmarshal(b, &recvd)
 

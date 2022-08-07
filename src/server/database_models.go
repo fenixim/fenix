@@ -20,7 +20,7 @@ type Message struct {
 	Timestamp int64
 	Author string
 }
-func (m *Message) GetMessagesBetween(hub *ServerHub, a int64, b int64) (*mongo.Cursor, error) {
+func (m *Message) GetMessagesBetween(hub *ServerHub, a int64, b int64) (*[]Message, error) {
 	c := hub.Database.Database(hub.MongoDatabase).Collection("messages")
 
 	q := bson.D{{
@@ -32,7 +32,15 @@ func (m *Message) GetMessagesBetween(hub *ServerHub, a int64, b int64) (*mongo.C
 	}}
 	opts := options.Find().SetSort(bson.D{{"timestamp",1}})
 	
-	return  c.Find(context.TODO(), q, opts)
+	
+	cur, err := c.Find(context.Background(), q, opts)
+	if err != nil {
+		return nil, err
+	}
+	var res []Message
+
+	err = cur.All(context.Background(), &res)
+	return &res, err
 }
 func (m *Message) InsertMessage(hub *ServerHub) {
 	c := hub.Database.Database(hub.MongoDatabase).Collection("messages")

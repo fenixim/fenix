@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	websocket_models "fenix/src/models"
 	"log"
 	"time"
 
@@ -16,20 +15,20 @@ type MessageHandler struct {
 
 func (m *MessageHandler) init() {
 	m.hub.RegisterHandler("msg_send", m.HandleSendMessage)
+	m.hub.RegisterHandler("msg_history", m.HandleMessageHistory)
 }
 
 func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
-	var msg websocket_models.SendMessage
+	var msg SendMessage
 	err := json.Unmarshal(b, &msg)
 	if err != nil {
 		log.Printf("error in decoding message json: %v", err)
 		return
 	}
 
-	recv_msg := websocket_models.BroadcastMessage{
-		T:    "msg_broadcast",
+	recv_msg := BroadcastMessage{
 		Time: time.Now().Unix(),
-		Author: websocket_models.Author{
+		Author: Author{
 			ID:   client.User.UserID.Hex(),
 			Nick: client.User.Username,
 		},
@@ -48,12 +47,29 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 	res, err := m.hub.Database.Database(m.hub.MongoDatabase).Collection("messages").InsertOne(ctx, db_msg)
 
 	if err != nil {
-		client.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "DatabaseError"}
+		client.OutgoingPayloadQueue <- GenericError{Error: "DatabaseError"}
 	}
 	recv_msg.MessageID = res.InsertedID.(primitive.ObjectID).Hex()
 
 	m.hub.HubChannels.broadcast <- recv_msg
 }
+
+func (m *MessageHandler) HandleMessageHistory(b []byte, client *Client) {
+	hist := &MessageHistory{}
+	json.Unmarshal(b, hist)
+	if hist.From == 0 || hist.To == 0 {
+		client.OutgoingPayloadQueue <- GenericError{Error: "BadFormat", Message: "MessageHistory needs From and To fields"}
+		return
+	}
+
+	messages, err := (&Message{}).GetMessagesBetween(m.hub, hist.From, hist.To)
+	if err != nil {
+		log.Printf("error in HandleMessageHistory, %v", err)
+		return
+	}
+	hist.Messages = *messages
+	client.OutgoingPayloadQueue <- hist
+}	
 
 func NewMessageHandler(hub *ServerHub) *MessageHandler {
 	m := MessageHandler{hub: hub}
@@ -70,8 +86,7 @@ func (i *IdentificationHandler) init() {
 }
 
 func (i *IdentificationHandler) HandleWhoAmI(_ []byte, c *Client) {
-	c.OutgoingPayloadQueue <- websocket_models.WhoAmI{
-		T:    "whoami",
+	c.OutgoingPayloadQueue <- WhoAmI{
 		ID:   c.User.UserID.Hex(),
 		Nick: c.User.Username,
 	}

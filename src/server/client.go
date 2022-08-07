@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	websocket_models "fenix/src/models"
 	"fenix/src/utils"
 	"fmt"
 	"log"
@@ -27,7 +26,7 @@ type Client struct {
 	Closed               bool
 	User                 User
 	ClientEventLoop      chan ClientEvent
-	OutgoingPayloadQueue chan websocket_models.JSONModel
+	OutgoingPayloadQueue chan JSONModel
 
 	wg *utils.WaitGroupCounter
 }
@@ -47,7 +46,7 @@ func (c *Client) Close(wg_id string) {
 
 func (c *Client) New(wg *utils.WaitGroupCounter) {
 	c.ClientEventLoop = make(chan ClientEvent)
-	c.OutgoingPayloadQueue = make(chan websocket_models.JSONModel)
+	c.OutgoingPayloadQueue = make(chan JSONModel)
 
 	c.User = User{Username: c.User.Username}
 	c.User.FindUser(c.hub)
@@ -86,15 +85,14 @@ func (c *Client) listenOnWebsocket() {
 
 		if err != nil {
 			fmt.Println(err)
-			c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "BadFormat", Message: "Error decoding: " + err.Error()}
+			c.OutgoingPayloadQueue <- GenericError{Error: "BadFormat", Message: "Error decoding: " + err.Error()}
 			return
 		}
 
 		err = json.Unmarshal(b, &t)
 
 		if err != nil {
-			c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "BadFormat", Message: "Malformed JSON"}
-			c.Closed = true
+			c.OutgoingPayloadQueue <- GenericError{Error: "BadFormat", Message: "Malformed JSON"}
 			return
 		}
 
@@ -123,7 +121,8 @@ func (c *Client) listenOnEventLoop() {
 			if c.Closed {
 				return
 			}
-			err := c.conn.WriteJSON(m)
+			
+			err := c.conn.WriteJSON(m.SetType())
 			if err != nil {
 				log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.User.Username, err)
 				c.Closed = true

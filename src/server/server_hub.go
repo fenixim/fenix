@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha512"
 	"crypto/subtle"
-	"fenix/src/models"
 	"fenix/src/utils"
 	"fmt"
 	"log"
@@ -32,7 +31,7 @@ var upgrader = websocket.Upgrader{
 }
 
 type hubChannels struct {
-	broadcast     chan websocket_models.JSONModel
+	broadcast     chan JSONModel
 	mainLoopEvent chan MainLoopEvent
 }
 
@@ -55,7 +54,7 @@ func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 		MongoDatabase: "development",
 		clients:       &sync.Map{},
 		HubChannels: &hubChannels{
-			broadcast:     make(chan websocket_models.JSONModel),
+			broadcast:     make(chan JSONModel),
 			mainLoopEvent: make(chan MainLoopEvent),
 		},
 		Handlers:  make(map[string]func([]byte, *Client)),
