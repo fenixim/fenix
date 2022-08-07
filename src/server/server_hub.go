@@ -246,6 +246,7 @@ func HandleFunc(hub *ServerHub, wg *utils.WaitGroupCounter) http.HandlerFunc {
 			}
 
 			hub.Upgrade(w, r, wg)
+
 		} else if r.URL.Path == "/register" {
 			username, password, ok := r.BasicAuth()
 			if !ok {
@@ -255,13 +256,13 @@ func HandleFunc(hub *ServerHub, wg *utils.WaitGroupCounter) http.HandlerFunc {
 
 			u := User{Username: username}
 
-			u.UserID = primitive.NewObjectIDFromTimestamp(time.Now())
 
 			err := u.FindUser(hub)
 			if err == nil {
 				w.WriteHeader(401)
 				return
 			}
+			u.UserID = primitive.NewObjectIDFromTimestamp(time.Now())
 
 			u.Salt = make([]byte, 16)
 
