@@ -46,7 +46,7 @@ func Prepare() (*utils.WaitGroupCounter, *httptest.Server, *ServerHub, string) {
 	return wg, srv, hub, u.Host
 }
 
-func sendOnWebsocket(conn *websocket.Conn, payload models.JSONModel, t *testing.T) {
+func sendOnWebsocket(conn *websocket.Conn, payload websocket_models.JSONModel, t *testing.T) {
 	err := conn.WriteJSON(payload)
 	if err != nil {
 		t.Fatalf("Error sending payload: %v", err)
@@ -146,7 +146,7 @@ func TestSendPayloadOnWebsocket(t *testing.T) {
 	conn := mustConnectToServer(t, addr, "Gopher")
 	defer conn.Close()
 
-	sendOnWebsocket(conn, models.SendMessage{T: "send_message", Message: "Hello world!"}, t)
+	sendOnWebsocket(conn, websocket_models.SendMessage{T: "send_message", Message: "Hello world!"}, t)
 }
 
 func TestRecievePayloadOnWebsocket(t *testing.T) {
@@ -170,7 +170,7 @@ func TestRecievePayloadOnWebsocket(t *testing.T) {
 
 	hub.Handlers["whoami"](make([]byte, 0), client)
 
-	w := &models.WhoAmI{}
+	w := &websocket_models.WhoAmI{}
 	b := recvOnWebsocket(conn, t)
 	err := json.Unmarshal(b, w)
 	if err != nil {
@@ -188,9 +188,9 @@ func TestWhoAmI(t *testing.T) {
 
 	defer conn.Close()
 
-	sendOnWebsocket(conn, models.WhoAmI{T: "whoami"}, t)
+	sendOnWebsocket(conn, websocket_models.WhoAmI{T: "whoami"}, t)
 
-	var w models.WhoAmI
+	var w websocket_models.WhoAmI
 	b := recvOnWebsocket(conn, t)
 	err := json.Unmarshal(b, &w)
 	if err != nil {
@@ -201,9 +201,9 @@ func TestWhoAmI(t *testing.T) {
 	}
 }
 
-func createMessage(msg string) *models.SendMessage {
-	return &models.SendMessage{
-		T:       models.SendMessage{}.Type(),
+func createMessage(msg string) *websocket_models.SendMessage {
+	return &websocket_models.SendMessage{
+		T:       websocket_models.SendMessage{}.Type(),
 		Message: msg,
 	}
 }
@@ -211,7 +211,7 @@ func createMessage(msg string) *models.SendMessage {
 func mustRecvMessage(t *testing.T, ws *websocket.Conn) string {
 	t.Helper()
 
-	var recvd models.BroadcastMessage
+	var recvd websocket_models.BroadcastMessage
 	_, b, _ := ws.ReadMessage()
 	err := json.Unmarshal(b, &recvd)
 

@@ -2,15 +2,24 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha512"
+	"crypto/subtle"
 	"fenix/src/models"
 	"fenix/src/utils"
+	"fmt"
 	"log"
 	"sync"
-
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
+	"time"
 
 	"net/http"
+
+	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 type MainLoopEvent interface {
@@ -23,33 +32,53 @@ var upgrader = websocket.Upgrader{
 }
 
 type hubChannels struct {
-	broadcast     chan models.JSONModel
+	broadcast     chan websocket_models.JSONModel
 	mainLoopEvent chan MainLoopEvent
 }
 
 // Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
-	clients     *sync.Map
-	HubChannels *hubChannels
-	ctx         context.Context
-	Shutdown    context.CancelFunc
-	Handlers    map[string]func([]byte, *Client)
-	callbacks   map[string]func([]interface{})
-	Wg          *utils.WaitGroupCounter
+	MongoDatabase string
+	clients       *sync.Map
+	HubChannels   *hubChannels
+	ctx           context.Context
+	Shutdown      context.CancelFunc
+	Handlers      map[string]func([]byte, *Client)
+	callbacks     map[string]func([]interface{})
+	Wg            *utils.WaitGroupCounter
+	Database      *mongo.Client
 }
 
 // Function to make and start an instance of ServerHub
 func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
 	hub := ServerHub{
-		clients: &sync.Map{},
+		MongoDatabase: "development",
+		clients:       &sync.Map{},
 		HubChannels: &hubChannels{
-			broadcast:     make(chan models.JSONModel),
+			broadcast:     make(chan websocket_models.JSONModel),
 			mainLoopEvent: make(chan MainLoopEvent),
 		},
 		Handlers:  make(map[string]func([]byte, *Client)),
 		callbacks: make(map[string]func([]interface{})),
 		Wg:        wg,
 	}
+	env, err := godotenv.Read(".env")
+	if err != nil {
+		panic(err)
+	}
+
+	serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
+	clientOptions := options.Client().
+		ApplyURI(env["DB"]).
+		SetServerAPIOptions(serverAPIOptions)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	c, err := mongo.Connect(ctx, clientOptions)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	hub.Database = c
 
 	NewMessageHandler(&hub)
 	NewIdentificationHandler(&hub)
@@ -150,7 +179,7 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 	<-hub.ctx.Done()
 	hub.clients.Range(func(key, value interface{}) bool {
 		client := value.(*Client)
-		log.Printf("Closing client %v", client.ID)
+		log.Printf("Closing client %v", client.User.UserID.Hex())
 		client.Close("")
 		return true
 	})
@@ -169,16 +198,11 @@ func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request, wg *utils.
 		return
 	}
 
-	var nick string
-	if n, ok := r.Header["Nick"]; ok {
-		nick = n[0]
-	} else {
-		nick = uuid.NewString()
-	}
+	nick, _, _ := r.BasicAuth()
 
-	client := &Client{hub: hub, conn: conn, Nick: nick, ID: uuid.NewString()}
+	client := &Client{hub: hub, conn: conn, User: User{Username: nick}}
 	client.New(wg)
-	hub.clients.Store(client.ID, client)
+	hub.clients.Store(client.User.UserID.Hex(), client)
 }
 
 // Serves http server on addr.
@@ -204,6 +228,54 @@ func Serve(addr string, wg *utils.WaitGroupCounter, hub *ServerHub) {
 // Handler func for incoming requests.
 func HandleFunc(hub *ServerHub, wg *utils.WaitGroupCounter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		hub.Upgrade(w, r, wg)
+		if r.URL.Path == "/ws" {
+			username, password, ok := r.BasicAuth()
+			if !ok {
+				w.WriteHeader(401)
+				return
+			}
+
+			u := User{Username: username}
+			u.FindUser(hub)
+			hash := pbkdf2.Key([]byte(password), u.Salt, 100000, 32, sha512.New512_256)
+
+			res := subtle.ConstantTimeCompare(hash, u.Password)
+			if res != 1 {
+				w.WriteHeader(401)
+				return
+			}
+
+			hub.Upgrade(w, r, wg)
+		} else if r.URL.Path == "/register" {
+			username, password, ok := r.BasicAuth()
+			if !ok {
+				w.WriteHeader(400)
+				return
+			}
+
+			u := User{Username: username}
+
+			u.UserID = primitive.NewObjectIDFromTimestamp(time.Now())
+
+			err := u.FindUser(hub)
+			if err == nil {
+				w.WriteHeader(401)
+				return
+			}
+
+			u.Salt = make([]byte, 16)
+
+			rand.Read(u.Salt)
+			u.Password = pbkdf2.Key([]byte(password), u.Salt, 100000, 32, sha512.New512_256)
+
+			_, err = u.InsertUser(hub)
+			if err != nil {
+				fmt.Println(err)
+				w.WriteHeader(500)
+			}
+
+			hub.Upgrade(w, r, wg)
+		}
+
 	}
 }
