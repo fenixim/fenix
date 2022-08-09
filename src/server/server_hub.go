@@ -22,7 +22,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-var version = 0.1
+var version = "0.1"
 
 // Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
