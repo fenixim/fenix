@@ -22,6 +22,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+var version = 0.1
 
 // Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
@@ -114,7 +115,7 @@ func (hub *ServerHub) run() {
 // Function to upgrade http connection to websocket
 // Also makes new client.
 func (hub *ServerHub) upgrade(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(w, r, http.Header{"Fenix-Version": []string{version}})
 	if err != nil {
 		log.Println(err)
 		return
