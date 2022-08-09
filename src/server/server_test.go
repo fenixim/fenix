@@ -216,7 +216,7 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 
 		cli := Connect_("gopher123", "totallymypassword", srv.addr)
 		cli.close()
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Millisecond * 100)
 
 		got := srv.wg.Counter
 		if got != expected {
