@@ -6,7 +6,6 @@ import (
 	"fenix/src/database"
 	"fenix/src/utils"
 	"fenix/src/websocket_models"
-	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -216,15 +215,7 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 
 		cli := Connect_("gopher123", "totallymypassword", srv.addr)
 		cli.close()
-		
-		for i := 0; i < 10; i++ {
-			ti := int64(math.Pow(float64(i), 2))
-			time.Sleep(time.Duration(ti) * time.Millisecond)
-			got := srv.wg.Counter
-			if got == 2 {
-				break
-			}
-		}
+		time.Sleep(10* time.Millisecond)
 
 		got := srv.wg.Counter
 		if got != 2 {
