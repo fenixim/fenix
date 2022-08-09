@@ -214,7 +214,11 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 		defer srv.close()
 		srv.addr.Path = "/register"
 		expected := srv.wg.Counter
-
+		srv.wg.Names.Range(func(key, value interface{}) bool {
+			t.Log(key)
+			return true
+		})
+		
 		cli := Connect_("gopher123", "totallymypassword", srv.addr)
 		cli.close()
 		
