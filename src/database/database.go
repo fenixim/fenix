@@ -166,7 +166,10 @@ func NewMongoDatabase(mongo_addr string, database string) *MongoDatabase {
 	defer cancel()
 	c, err := mongo.Connect(ctx, clientOptions)
 
-	log.Fatalf("Error connecting to mongoDB: %v", err)
+	if err != nil {
+		log.Fatalf("Error connecting to mongoDB: %v", err)
+	}
+	
 	db := MongoDatabase{
 		mongo: c,
 		database: database,
