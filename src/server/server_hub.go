@@ -3,88 +3,53 @@ package server
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha512"
 	"crypto/subtle"
+	"fenix/src/database"
 	"fenix/src/utils"
+	"fenix/src/websocket_models"
 	"fmt"
 	"log"
 	"sync"
-	"time"
 
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"golang.org/x/crypto/pbkdf2"
 )
 
-type MainLoopEvent interface {
-	GetEventType() string
-}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
 
-type hubChannels struct {
-	broadcast     chan JSONModel
-	mainLoopEvent chan MainLoopEvent
-}
 
 // Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
-	MongoDatabase string
-	clients       *sync.Map
-	HubChannels   *hubChannels
-	ctx           context.Context
-	Shutdown      context.CancelFunc
-	Handlers      map[string]func([]byte, *Client)
-	callbacks     map[string]func([]interface{})
-	Wg            *utils.WaitGroupCounter
-	Database      *mongo.Client
+	clients     *sync.Map
+	broadcast_payload     chan websocket_models.JSONModel
+	ctx         context.Context
+	Shutdown    context.CancelFunc
+	Handlers    map[string]func([]byte, *Client)
+	Wg          *utils.WaitGroupCounter
+	Database    database.Database
 }
 
 // Function to make and start an instance of ServerHub
-func NewHub(wg *utils.WaitGroupCounter) *ServerHub {
+func NewHub(wg *utils.WaitGroupCounter, database database.Database) *ServerHub {
 	hub := ServerHub{
-		MongoDatabase: "development",
-		clients:       &sync.Map{},
-		HubChannels: &hubChannels{
-			broadcast:     make(chan JSONModel),
-			mainLoopEvent: make(chan MainLoopEvent),
-		},
+		clients: &sync.Map{},
+		broadcast_payload: make(chan websocket_models.JSONModel),
 		Handlers:  make(map[string]func([]byte, *Client)),
-		callbacks: make(map[string]func([]interface{})),
 		Wg:        wg,
+		Database:  database,
 	}
-	env, err := godotenv.Read(".env")
-	if err != nil {
-		panic(err)
-	}
-
-	serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
-	clientOptions := options.Client().
-		ApplyURI(env["DB"]).
-		SetServerAPIOptions(serverAPIOptions)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	c, err := mongo.Connect(ctx, clientOptions)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	hub.Database = c
 
 	NewMessageHandler(&hub)
 	NewIdentificationHandler(&hub)
 
 	hub.ctx, hub.Shutdown = context.WithCancel(context.Background())
 
-	go hub.Run(wg)
+	go hub.run()
 
 	return &hub
 }
@@ -94,24 +59,12 @@ func (hub *ServerHub) RegisterHandler(messageType string, handler func([]byte, *
 	hub.Handlers[messageType] = handler
 }
 
-// Registers a callback to be called when event happens.  If a function calls a callback, it should be shown in a docstring.
-func (hub *ServerHub) RegisterCallback(event string, f func([]interface{})) {
-	hub.callbacks[event] = f
-}
-
-// Helper function to reduce boilerplate code for calling callbacks.
-func (hub *ServerHub) CallCallbackIfExists(name string, args []interface{}) {
-	if callback, ok := hub.callbacks[name]; ok {
-		callback(args)
-	}
-}
-
 // Loop to broadcast payload to all clients.
 // Will call callback "BroadcastPayload" when a request to broadcast a payload is made.
 // Will call callback "BroadcastPayloadLoopDone" when this finishes.
-func (hub *ServerHub) Broadcast(wg *utils.WaitGroupCounter) (context.Context, context.CancelFunc) {
+func (hub *ServerHub) broadcast() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
-	err := wg.Add(1, "BroadcastPayloadLoop")
+	err := hub.Wg.Add(1, "BroadcastPayloadLoop")
 	if err != nil {
 		panic(err)
 	}
@@ -119,43 +72,15 @@ func (hub *ServerHub) Broadcast(wg *utils.WaitGroupCounter) (context.Context, co
 	go func() {
 		for {
 			select {
-			case d := <-hub.HubChannels.broadcast:
+			case d := <-hub.broadcast_payload:
 				hub.clients.Range(func(key, value interface{}) bool {
 					value.(*Client).OutgoingPayloadQueue <- d
 					return true
 				})
 
-				hub.CallCallbackIfExists("BroadcastPayload", []interface{}{d})
 
 			case <-ctx.Done():
-				wg.Done("BroadcastPayloadLoop")
-				hub.CallCallbackIfExists("BroadcastPayloadLoopDone", []interface{}{})
-				return
-			}
-		}
-	}()
-
-	return ctx, cancel
-}
-
-// Loop to recieve main loop commands.  Currently is unused, but possibly will be used in the future.
-// Will call callback "MainLoopEvent" when a main loop event is dispatched.
-// Will call callback "MainEventLoopDone" when this finishes.
-func (hub *ServerHub) MainLoopEvents(wg *utils.WaitGroupCounter) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	err := wg.Add(1, "MainEventLoop")
-	if err != nil {
-		panic(err)
-	}
-	go func() {
-		for {
-			select {
-			case e := <-hub.HubChannels.mainLoopEvent:
-				hub.CallCallbackIfExists("MainLoopEvent", []interface{}{e})
-
-			case <-ctx.Done():
-				wg.Done("MainEventLoop")
-				hub.CallCallbackIfExists("MainEventLoopDone", []interface{}{})
+				hub.Wg.Done("BroadcastPayloadLoop")
 				return
 			}
 		}
@@ -166,11 +91,10 @@ func (hub *ServerHub) MainLoopEvents(wg *utils.WaitGroupCounter) (context.Contex
 
 // Starts all goroutines for server to run.
 // Will stop all goroutines when hub.Shutdown() is called.
-func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
-	_, broadcastCancel := hub.Broadcast(wg)
-	_, mainLoopEventsCancel := hub.MainLoopEvents(wg)
+func (hub *ServerHub) run() {
+	_, broadcastCancel := hub.broadcast()
 
-	err := wg.Add(1, "ServerHub_Run")
+	err := hub.Wg.Add(1, "ServerHub_Run")
 	if err != nil {
 		panic(err)
 	}
@@ -184,13 +108,12 @@ func (hub *ServerHub) Run(wg *utils.WaitGroupCounter) {
 	})
 
 	broadcastCancel()
-	mainLoopEventsCancel()
-	wg.Done("ServerHub_Run")
+	hub.Wg.Done("ServerHub_Run")
 }
 
 // Function to upgrade http connection to websocket
 // Also makes new client.
-func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request, wg *utils.WaitGroupCounter) {
+func (hub *ServerHub) upgrade(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -199,21 +122,81 @@ func (hub *ServerHub) Upgrade(w http.ResponseWriter, r *http.Request, wg *utils.
 
 	nick, _, _ := r.BasicAuth()
 
-	client := &Client{hub: hub, conn: conn, User: User{Username: nick}}
-	client.New(wg)
+	client := &Client{hub: hub, conn: conn, User: database.User{Username: nick}}
+	client.New()
 	hub.clients.Store(client.User.UserID.Hex(), client)
 }
 
+// HTTP method to log in and upgrade a user's connection.
+// Uses BasicAuth header
+func (hub *ServerHub) Login(w http.ResponseWriter, r *http.Request) {
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	u := &database.User{Username: username}
+
+	err := hub.Database.GetUser(u)
+	if err != nil {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	p := &database.User{Password: []byte(password), Salt: u.Salt}
+	p.HashPassword()
+
+	res := subtle.ConstantTimeCompare(p.Password, u.Password)
+	if res != 1 {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	hub.upgrade(w, r)
+}
+
+func (hub *ServerHub) Register(w http.ResponseWriter, r *http.Request) {
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	u := &database.User{Username: username}
+	err := hub.Database.GetUser(u)
+
+	// If user exists, dont let the client re-register a user.
+	if err == nil {
+		w.WriteHeader(http.StatusConflict)
+		return
+	}
+
+	u.Salt = make([]byte, 16)
+
+	rand.Read(u.Salt)
+	u.Password = []byte(password)
+	u.HashPassword()
+
+	err = hub.Database.InsertUser(u)
+
+	if err != nil {
+		fmt.Errorf("Error inserting user: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	hub.upgrade(w, r)
+}
+
 // Serves http server on addr.
-func Serve(addr string, wg *utils.WaitGroupCounter, hub *ServerHub) {
+func (hub *ServerHub) Serve(addr string) {
 	srv := http.Server{
-		Handler: HandleFunc(hub, wg),
+		Handler: hub.HTTPRequestHandler(),
 		Addr:    addr,
 	}
 
-	defer wg.Done("ServerHub_ListenAndServe")
+	defer hub.Wg.Done("ServerHub_ListenAndServe")
 
-	err := wg.Add(1, "ServerHub_ListenAndServe")
+	err := hub.Wg.Add(1, "ServerHub_ListenAndServe")
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
@@ -225,57 +208,14 @@ func Serve(addr string, wg *utils.WaitGroupCounter, hub *ServerHub) {
 }
 
 // Handler func for incoming requests.
-func HandleFunc(hub *ServerHub, wg *utils.WaitGroupCounter) http.HandlerFunc {
+func (hub *ServerHub) HTTPRequestHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/ws" {
-			username, password, ok := r.BasicAuth()
-			if !ok {
-				w.WriteHeader(401)
-				return
-			}
-
-			u := User{Username: username}
-			u.FindUser(hub)
-			hash := pbkdf2.Key([]byte(password), u.Salt, 100000, 32, sha512.New512_256)
-
-			res := subtle.ConstantTimeCompare(hash, u.Password)
-			if res != 1 {
-				w.WriteHeader(401)
-				return
-			}
-
-			hub.Upgrade(w, r, wg)
-
+		if r.URL.Path == "/login" {
+			hub.Login(w, r)
 		} else if r.URL.Path == "/register" {
-			username, password, ok := r.BasicAuth()
-			if !ok {
-				w.WriteHeader(400)
-				return
-			}
-
-			u := User{Username: username}
-
-
-			err := u.FindUser(hub)
-			if err == nil {
-				w.WriteHeader(401)
-				return
-			}
-			u.UserID = primitive.NewObjectIDFromTimestamp(time.Now())
-
-			u.Salt = make([]byte, 16)
-
-			rand.Read(u.Salt)
-			u.Password = pbkdf2.Key([]byte(password), u.Salt, 100000, 32, sha512.New512_256)
-
-			_, err = u.InsertUser(hub)
-			if err != nil {
-				fmt.Println(err)
-				w.WriteHeader(500)
-			}
-
-			hub.Upgrade(w, r, wg)
+			hub.Register(w, r)
+		} else {
+			w.WriteHeader(http.StatusNotFound)
 		}
-
 	}
 }

@@ -1,13 +1,13 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
+	"fenix/src/database"
+	"fenix/src/websocket_models"
 	"log"
 	"time"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
 
 type MessageHandler struct {
 	hub *ServerHub
@@ -19,63 +19,70 @@ func (m *MessageHandler) init() {
 }
 
 func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
-	var msg SendMessage
+	var msg websocket_models.SendMessage
 	err := json.Unmarshal(b, &msg)
 	if err != nil {
 		log.Printf("error in decoding message json: %v", err)
 		return
 	}
 
-	recv_msg := BroadcastMessage{
+	if msg.Message == "" {
+		client.OutgoingPayloadQueue <- websocket_models.GenericError{
+			Error: "message_empty",
+			Message: "Cannot send an empty message!",
+		}
+		return
+	}
+
+	msg_broadcast := websocket_models.BroadcastMessage{
 		Time: time.Now().Unix(),
-		Author: Author{
-			ID:   client.User.UserID.Hex(),
-			Nick: client.User.Username,
+		Author: websocket_models.Author{
+			ID:       client.User.UserID.Hex(),
+			Username: client.User.Username,
 		},
 		Message: msg.Message,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	db_msg := Message{
-		MessageID: primitive.NewObjectIDFromTimestamp(time.Unix(recv_msg.Time,0)),
-		Content: recv_msg.Message,
-		Timestamp: recv_msg.Time,
-		Author: recv_msg.Author.ID,
+	db_msg := database.Message{
+		Content:   msg_broadcast.Message,
+		Timestamp: msg_broadcast.Time,
+		Author:    msg_broadcast.Author.ID,
 	}
 
-	res, err := m.hub.Database.Database(m.hub.MongoDatabase).Collection("messages").InsertOne(ctx, db_msg)
-
+	err = m.hub.Database.InsertMessage(&db_msg)
 	if err != nil {
-		client.OutgoingPayloadQueue <- GenericError{Error: "DatabaseError"}
+		client.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "DatabaseError"}
 	}
-	recv_msg.MessageID = res.InsertedID.(primitive.ObjectID).Hex()
 
-	m.hub.HubChannels.broadcast <- recv_msg
+	msg_broadcast.MessageID = db_msg.MessageID.Hex()
+	m.hub.broadcast_payload <- msg_broadcast
 }
 
 func (m *MessageHandler) HandleMessageHistory(b []byte, client *Client) {
-	hist := &MessageHistory{}
+	hist := &websocket_models.MessageHistory{}
 	json.Unmarshal(b, hist)
 	if hist.From == 0 || hist.To == 0 {
-		client.OutgoingPayloadQueue <- GenericError{Error: "BadFormat", Message: "MessageHistory needs From and To fields"}
+		client.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "BadFormat", Message: "MessageHistory needs From and To fields"}
 		return
 	}
 
-	messages, err := (&Message{}).GetMessagesBetween(m.hub, hist.From, hist.To)
+	msgs, err := m.hub.Database.GetMessagesBetween(hist.From, hist.To, 50)
 	if err != nil {
 		log.Printf("error in HandleMessageHistory, %v", err)
 		return
 	}
-	hist.Messages = *messages
+	hist.Messages = msgs
+
 	client.OutgoingPayloadQueue <- hist
-}	
+}
+
 
 func NewMessageHandler(hub *ServerHub) *MessageHandler {
 	m := MessageHandler{hub: hub}
 	m.init()
 	return &m
 }
+
 
 type IdentificationHandler struct {
 	hub *ServerHub
@@ -86,11 +93,10 @@ func (i *IdentificationHandler) init() {
 }
 
 func (i *IdentificationHandler) HandleWhoAmI(_ []byte, c *Client) {
-	c.OutgoingPayloadQueue <- WhoAmI{
-		ID:   c.User.UserID.Hex(),
-		Nick: c.User.Username,
+	c.OutgoingPayloadQueue <- websocket_models.WhoAmI{
+		ID:       c.User.UserID.Hex(),
+		Username: c.User.Username,
 	}
-	i.hub.CallCallbackIfExists("WhoAmI", []interface{}{c})
 }
 
 func NewIdentificationHandler(hub *ServerHub) {

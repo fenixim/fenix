@@ -46,9 +46,3 @@ func (w *WaitGroupCounter) Done(name string) {
 func (w *WaitGroupCounter) Wait() {
 	w.WaitGroup.Wait()
 }
-
-func NewWaitGroupCounter() *WaitGroupCounter {
-	wg := WaitGroupCounter{}
-	wg.Names = sync.Map{}
-	return &wg
-}

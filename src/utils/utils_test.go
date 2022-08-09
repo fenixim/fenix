@@ -6,7 +6,7 @@ import (
 )
 
 func TestWaitGroupCounterAdd(t *testing.T) {
-	wg := NewWaitGroupCounter()
+	wg := WaitGroupCounter{}
 
 	err := wg.Add(1, "TestWaitGroupCounterAdd")
 
@@ -20,7 +20,7 @@ func TestWaitGroupCounterAdd(t *testing.T) {
 }
 
 func TestWaitGroupCounterDone(t *testing.T) {
-	wg := NewWaitGroupCounter()
+	wg := WaitGroupCounter{}
 
 	err := wg.Add(1, "TestWaitGroupCounterDone")
 
@@ -34,7 +34,7 @@ func TestWaitGroupCounterDone(t *testing.T) {
 	}
 }
 func TestWaitGroupCounterWait(t *testing.T) {
-	wg := NewWaitGroupCounter()
+	wg := WaitGroupCounter{}
 
 	err := wg.Add(1, "TestWaitGroupCounterWait")
 

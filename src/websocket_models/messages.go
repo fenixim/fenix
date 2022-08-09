@@ -1,9 +1,10 @@
-package server
+package websocket_models
 
+import "fenix/src/database"
 
 // Sends a message to the server.  Clients will recieve this message back, when it broadcasts.
 type SendMessage struct {
-	T    string `json:"type"`
+	T       string `json:"type"`
 	Message string `json:"msg"`
 }
 
@@ -18,7 +19,7 @@ func (b SendMessage) SetType() JSONModel {
 
 // Sends a message to the clients.
 type BroadcastMessage struct {
-	T    string `json:"type"`
+	T string `json:"type"`
 
 	MessageID string `json:"m_id"`
 	Author    Author `json:"author"`
@@ -36,15 +37,15 @@ func (b BroadcastMessage) SetType() JSONModel {
 }
 
 type Author struct {
-	ID string
-	Nick string
+	ID       string
+	Username string
 }
 
 type MessageHistory struct {
-	T    string `json:"type"`
-	From int64 `json:"from,omitempty"`
-	To int64 `json:"to,omitempty"`
-	Messages []Message `json:"messages,omitempty"`
+	T        string             `json:"type"`
+	From     int64              `json:"from,omitempty"`
+	To       int64              `json:"to,omitempty"`
+	Messages []database.Message `json:"messages,omitempty"`
 }
 
 func (m MessageHistory) Type() string {

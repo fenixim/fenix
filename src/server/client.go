@@ -2,7 +2,8 @@ package server
 
 import (
 	"encoding/json"
-	"fenix/src/utils"
+	"fenix/src/database"
+	"fenix/src/websocket_models"
 	"fmt"
 	"log"
 
@@ -24,36 +25,35 @@ type Client struct {
 	hub                  *ServerHub
 	conn                 *websocket.Conn
 	Closed               bool
-	User                 User
+	User                 database.User
 	ClientEventLoop      chan ClientEvent
-	OutgoingPayloadQueue chan JSONModel
-
-	wg *utils.WaitGroupCounter
+	OutgoingPayloadQueue chan websocket_models.JSONModel
 }
 
 // Can be called multiple times.  Should be deferred at end of functions
 func (c *Client) Close(wg_id string) {
 	if wg_id != "" {
-		c.wg.Done(wg_id)
+		c.hub.Wg.Done(wg_id)
 	}
+	if !c.Closed {
+		c.ClientEventLoop <- ClientQuit{}
+	}
+
 	c.Closed = true
 	c.hub.clients.Delete(c.User.UserID)
 
 	c.conn.Close()
-
-
 }
 
-func (c *Client) New(wg *utils.WaitGroupCounter) {
+func (c *Client) New() {
 	c.ClientEventLoop = make(chan ClientEvent)
-	c.OutgoingPayloadQueue = make(chan JSONModel)
+	c.OutgoingPayloadQueue = make(chan websocket_models.JSONModel)
 
-	c.User = User{Username: c.User.Username}
-	c.User.FindUser(c.hub)
+	c.User = database.User{Username: c.User.Username}
+	c.hub.Database.GetUser(&c.User)
 
 	c.conn.SetCloseHandler(c.OnClose)
 
-	c.wg = wg
 	go c.listenOnEventLoop()
 	go c.listenOnWebsocket()
 }
@@ -66,7 +66,7 @@ func (c *Client) OnClose(code int, text string) error {
 }
 
 func (c *Client) listenOnWebsocket() {
-	err := c.wg.Add(1, "Client_ListenOnWebsocket__" + c.User.UserID.Hex())
+	err := c.hub.Wg.Add(1, "Client_ListenOnWebsocket__" + c.User.UserID.Hex())
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
@@ -85,14 +85,14 @@ func (c *Client) listenOnWebsocket() {
 
 		if err != nil {
 			fmt.Println(err)
-			c.OutgoingPayloadQueue <- GenericError{Error: "BadFormat", Message: "Error decoding: " + err.Error()}
+			c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "BadFormat", Message: "Error decoding: " + err.Error()}
 			return
 		}
 
 		err = json.Unmarshal(b, &t)
 
 		if err != nil {
-			c.OutgoingPayloadQueue <- GenericError{Error: "BadFormat", Message: "Malformed JSON"}
+			c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "BadFormat", Message: "Malformed JSON"}
 			return
 		}
 
@@ -103,7 +103,7 @@ func (c *Client) listenOnWebsocket() {
 }
 
 func (c *Client) listenOnEventLoop() {
-	err := c.wg.Add(1, "Client_ListenOnEventLoop__"+c.User.UserID.Hex())
+	err := c.hub.Wg.Add(1, "Client_ListenOnEventLoop__"+c.User.UserID.Hex())
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}

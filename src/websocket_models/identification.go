@@ -1,4 +1,4 @@
-package server
+package websocket_models
 
 // Base interface for all messages.
 type JSONModel interface {
@@ -8,9 +8,9 @@ type JSONModel interface {
 
 // Used to obtain your own client ID
 type WhoAmI struct {
-	T    string `json:"type"`
-	ID   string `json:"id"`
-	Nick string `json:"nick"`
+	T        string `json:"type"`
+	ID       string `json:"id"`
+	Username string `json:"nick"`
 }
 
 func (b WhoAmI) Type() string {
@@ -23,10 +23,11 @@ func (b WhoAmI) SetType() JSONModel {
 }
 
 type GenericError struct {
-	T    string `json:"type"`
-	Error string `json:"error"`
+	T       string `json:"type"`
+	Error   string `json:"error"`
 	Message string `json:"msg"`
 }
+
 func (e GenericError) Type() string {
 	return "error"
 }
