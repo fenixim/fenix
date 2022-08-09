@@ -218,11 +218,10 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 		cli := Connect_("gopher123", "totallymypassword", srv.addr)
 		cli.close()
 		
-		for i := 0; i < 20; i++ {
+		for i := 0; i < 10; i++ {
 			ti := int64(math.Pow(float64(i), 2))
 			time.Sleep(time.Duration(ti) * time.Millisecond)
 			got := srv.wg.Counter
-			t.Logf("On iteration %v", i)
 			if got == expected {
 				break
 			}
@@ -230,6 +229,10 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 
 		got := srv.wg.Counter
 		if got != expected {
+			srv.wg.Names.Range(func(key, value interface{}) bool {
+				t.Log(key)
+				return true
+			})
 			t.Fail()
 		}
 	})
