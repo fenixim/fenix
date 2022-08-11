@@ -9,18 +9,18 @@ import (
 
 type Message struct {
 	MessageID primitive.ObjectID `bson:"_id"`
-	Content string
+	Content   string
 	Timestamp int64
-	Author string
+	Author    string
 }
 
 type User struct {
-	UserID primitive.ObjectID `bson:"_id"`
+	UserID   primitive.ObjectID `bson:"_id"`
 	Username string
 	Password []byte
-	Salt []byte
+	Salt     []byte
 }
 
-func (u *User) HashPassword()  {
+func (u *User) HashPassword() {
 	u.Password = pbkdf2.Key(u.Password, u.Salt, 100000, 32, sha512.New512_256)
 }

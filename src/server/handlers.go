@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-
 type MessageHandler struct {
 	hub *ServerHub
 }
@@ -28,7 +27,7 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 
 	if msg.Message == "" {
 		client.OutgoingPayloadQueue <- websocket_models.GenericError{
-			Error: "message_empty",
+			Error:   "message_empty",
 			Message: "Cannot send an empty message!",
 		}
 		return
@@ -76,13 +75,11 @@ func (m *MessageHandler) HandleMessageHistory(b []byte, client *Client) {
 	client.OutgoingPayloadQueue <- hist
 }
 
-
 func NewMessageHandler(hub *ServerHub) *MessageHandler {
 	m := MessageHandler{hub: hub}
 	m.init()
 	return &m
 }
-
 
 type IdentificationHandler struct {
 	hub *ServerHub

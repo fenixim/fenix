@@ -16,7 +16,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -26,23 +25,23 @@ var version = "0.1"
 
 // Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
-	clients     *sync.Map
-	broadcast_payload     chan websocket_models.JSONModel
-	ctx         context.Context
-	Shutdown    context.CancelFunc
-	Handlers    map[string]func([]byte, *Client)
-	Wg          *utils.WaitGroupCounter
-	Database    database.Database
+	clients           *sync.Map
+	broadcast_payload chan websocket_models.JSONModel
+	ctx               context.Context
+	Shutdown          context.CancelFunc
+	Handlers          map[string]func([]byte, *Client)
+	Wg                *utils.WaitGroupCounter
+	Database          database.Database
 }
 
 // Function to make and start an instance of ServerHub
 func NewHub(wg *utils.WaitGroupCounter, database database.Database) *ServerHub {
 	hub := ServerHub{
-		clients: &sync.Map{},
+		clients:           &sync.Map{},
 		broadcast_payload: make(chan websocket_models.JSONModel),
-		Handlers:  make(map[string]func([]byte, *Client)),
-		Wg:        wg,
-		Database:  database,
+		Handlers:          make(map[string]func([]byte, *Client)),
+		Wg:                wg,
+		Database:          database,
 	}
 
 	NewMessageHandler(&hub)
@@ -78,7 +77,6 @@ func (hub *ServerHub) broadcast() (context.Context, context.CancelFunc) {
 					value.(*Client).OutgoingPayloadQueue <- d
 					return true
 				})
-
 
 			case <-ctx.Done():
 				hub.Wg.Done("BroadcastPayloadLoop")

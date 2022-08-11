@@ -9,12 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type DoesNotExist struct {}
+type DoesNotExist struct{}
 
 func (d *DoesNotExist) Error() string {
 	return "Does Not Exist!"
 }
-
 
 type messages struct {
 	M []Message
@@ -36,14 +35,13 @@ func (m messages) Len() int {
 	return len(m.M)
 }
 
-
 type StubDatabase struct {
-	UsersById *sync.Map
-	Messages *sync.Map
+	UsersById       *sync.Map
+	Messages        *sync.Map
 	UsersByUsername *sync.Map
 }
 
-func (s *StubDatabase) InsertMessage(m *Message) (error) {
+func (s *StubDatabase) InsertMessage(m *Message) error {
 	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(m.Timestamp, 0))
 	s.Messages.Store(m.MessageID.Hex(), m)
 	return nil
@@ -57,7 +55,7 @@ func (s *StubDatabase) GetMessagesBetween(a, b, limit int64) ([]Message, error) 
 		if message.Timestamp >= a || message.Timestamp <= b {
 			msgs = append(msgs, *message)
 		}
-		
+
 		return true
 	})
 	m := messages{
@@ -71,7 +69,7 @@ func (s *StubDatabase) GetMessagesBetween(a, b, limit int64) ([]Message, error) 
 	return m.M, nil
 }
 
-func (s *StubDatabase) GetMessage(m *Message) (error) {
+func (s *StubDatabase) GetMessage(m *Message) error {
 	message, _ := s.Messages.Load(m.MessageID.Hex())
 	typesMessage := (message).(*Message)
 	*m = *typesMessage
@@ -83,14 +81,14 @@ func (s *StubDatabase) DeleteMessage(m *Message) error {
 	return nil
 }
 
-func (s *StubDatabase) InsertUser(u *User) (error) {
+func (s *StubDatabase) InsertUser(u *User) error {
 	u.UserID = primitive.NewObjectIDFromTimestamp(time.Now())
 	s.UsersById.Store(u.UserID.Hex(), u)
 	s.UsersByUsername.Store(u.Username, u)
 	return nil
 }
 
-func (s *StubDatabase) GetUser(u *User) (error) {
+func (s *StubDatabase) GetUser(u *User) error {
 	var user interface{}
 	var ok bool
 	if u.UserID != primitive.NilObjectID {

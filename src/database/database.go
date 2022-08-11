@@ -12,19 +12,18 @@ import (
 )
 
 type Database interface {
-	InsertMessage(*Message) (error)
-	GetMessagesBetween(int64, int64, int64) ([]Message, error) 
-	GetMessage(*Message) (error) 
+	InsertMessage(*Message) error
+	GetMessagesBetween(int64, int64, int64) ([]Message, error)
+	GetMessage(*Message) error
 	DeleteMessage(*Message) error
 
-	InsertUser(*User) (error)
-	GetUser(*User) (error)
+	InsertUser(*User) error
+	GetUser(*User) error
 	DeleteUser(*User) error
 }
 
-
 type MongoDatabase struct {
-	mongo *mongo.Client
+	mongo    *mongo.Client
 	database string
 }
 
@@ -33,10 +32,10 @@ func (db *MongoDatabase) getDatabase() *mongo.Database {
 }
 
 func (db *MongoDatabase) makeContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(),time.Second*5)
+	return context.WithTimeout(context.Background(), time.Second*5)
 }
 
-func (db *MongoDatabase) InsertMessage(m *Message) (error) {
+func (db *MongoDatabase) InsertMessage(m *Message) error {
 	coll := db.getDatabase().Collection("messages")
 	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(m.Timestamp, 0))
 
@@ -57,7 +56,7 @@ func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]Me
 			bson.D{{"timestamp", bson.D{{"$lte", b}}}},
 		},
 	}}
-	opts := options.Find().SetSort(bson.D{{"timestamp",1}}).SetLimit(limit)
+	opts := options.Find().SetSort(bson.D{{"timestamp", 1}}).SetLimit(limit)
 
 	ctx, cancel := db.makeContext()
 	defer cancel()
@@ -72,7 +71,7 @@ func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]Me
 	return res, err
 }
 
-func (db *MongoDatabase) GetMessage(m *Message) (error) {
+func (db *MongoDatabase) GetMessage(m *Message) error {
 	coll := db.getDatabase().Collection("messages")
 	q := bson.D{{
 		"_id", bson.D{{
@@ -103,7 +102,7 @@ func (db *MongoDatabase) DeleteMessage(m *Message) error {
 	return err
 }
 
-func (db *MongoDatabase) InsertUser(u *User) (error) {
+func (db *MongoDatabase) InsertUser(u *User) error {
 	coll := db.getDatabase().Collection("messages")
 	u.UserID = primitive.NewObjectIDFromTimestamp(time.Now())
 
@@ -114,7 +113,7 @@ func (db *MongoDatabase) InsertUser(u *User) (error) {
 	return err
 }
 
-func (db *MongoDatabase) GetUser(u *User) (error)  {
+func (db *MongoDatabase) GetUser(u *User) error {
 	coll := db.getDatabase().Collection("users")
 	var q bson.D
 	if u.UserID != primitive.NilObjectID {
@@ -132,7 +131,7 @@ func (db *MongoDatabase) GetUser(u *User) (error)  {
 	} else {
 		log.Panic("GetUser needs fields in User!")
 	}
-	
+
 	ctx, cancel := db.makeContext()
 	defer cancel()
 
@@ -169,9 +168,9 @@ func NewMongoDatabase(mongo_addr string, database string) *MongoDatabase {
 	if err != nil {
 		log.Fatalf("Error connecting to mongoDB: %v", err)
 	}
-	
+
 	db := MongoDatabase{
-		mongo: c,
+		mongo:    c,
 		database: database,
 	}
 	return &db

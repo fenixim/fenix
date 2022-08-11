@@ -66,7 +66,7 @@ func (c *Client) OnClose(code int, text string) error {
 }
 
 func (c *Client) listenOnWebsocket() {
-	err := c.hub.Wg.Add(1, "Client_ListenOnWebsocket__" + c.User.UserID.Hex())
+	err := c.hub.Wg.Add(1, "Client_ListenOnWebsocket__"+c.User.UserID.Hex())
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
@@ -78,7 +78,7 @@ func (c *Client) listenOnWebsocket() {
 			Type string `json:"type"`
 		}
 		_, b, err := c.conn.ReadMessage()
-		
+
 		if websocket.IsUnexpectedCloseError(err) {
 			return
 		}
@@ -121,7 +121,7 @@ func (c *Client) listenOnEventLoop() {
 			if c.Closed {
 				return
 			}
-			
+
 			err := c.conn.WriteJSON(m.SetType())
 			if err != nil {
 				log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.User.Username, err)

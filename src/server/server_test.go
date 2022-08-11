@@ -215,7 +215,7 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 
 		cli := Connect_("gopher123", "totallymypassword", srv.addr)
 		cli.close()
-		time.Sleep(10* time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 
 		got := srv.wg.Counter
 		if got != 2 {
@@ -251,6 +251,19 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 			t.Fail()
 		}
 	})
+	t.Run(
+		"for incorrect path", func(t *testing.T) {
+			_, cli, close := StartServerAndConnect("gopher123", "myawesomepassword", "/gophers")
+			defer close()
+
+			got := cli.res.StatusCode
+			expected := http.StatusNotFound
+
+			if got != expected {
+				t.Fail()
+			}
+		},
+	)
 }
 
 func TestWhoAmIOnWebsocket(t *testing.T) {
@@ -279,7 +292,7 @@ func TestWhoAmIOnWebsocket(t *testing.T) {
 }
 
 func TestSendMessageOnWebsocket(t *testing.T) {
-	compare := func (got, expected websocket_models.BroadcastMessage, t *testing.T) {
+	compare := func(got, expected websocket_models.BroadcastMessage, t *testing.T) {
 		if got.Author.ID != expected.Author.ID {
 			t.Fail()
 		}
@@ -300,7 +313,7 @@ func TestSendMessageOnWebsocket(t *testing.T) {
 		expectedMessage := "Hello there!\nGeneral Kenobi, you are a bold one!"
 		expected := websocket_models.BroadcastMessage{
 			Author: websocket_models.Author{
-				ID: user.UserID.Hex(),
+				ID:       user.UserID.Hex(),
 				Username: user.Username,
 			},
 			Message: expectedMessage,
@@ -312,7 +325,7 @@ func TestSendMessageOnWebsocket(t *testing.T) {
 
 		var got websocket_models.BroadcastMessage
 		cli.conn.ReadJSON(&got)
-		
+
 		compare(got, expected, t)
 	})
 	t.Run("EmptySendMessage", func(t *testing.T) {
@@ -347,13 +360,13 @@ func TestMessageHistoryOnWebsocket(t *testing.T) {
 
 		for i := 0; i < count; i++ {
 			srv.hub.Database.InsertMessage(&database.Message{
-				Content: "Hello there!",
+				Content:   "Hello there!",
 				Timestamp: time.Now().Unix(),
-				Author: user.UserID.Hex(),
+				Author:    user.UserID.Hex(),
 			})
 		}
 	}
-	
+
 	t.Run("NormalMessageHistory", func(t *testing.T) {
 		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
 		defer close()
@@ -362,12 +375,12 @@ func TestMessageHistoryOnWebsocket(t *testing.T) {
 
 		cli.conn.WriteJSON(websocket_models.MessageHistory{
 			From: from.Unix(),
-			To: time.Now().Unix(),
+			To:   time.Now().Unix(),
 		}.SetType())
 
 		var got websocket_models.MessageHistory
 		cli.conn.ReadJSON(&got)
-		
+
 		if len(got.Messages) != 10 {
 			t.Fail()
 		}
@@ -380,12 +393,12 @@ func TestMessageHistoryOnWebsocket(t *testing.T) {
 
 		cli.conn.WriteJSON(websocket_models.MessageHistory{
 			From: from.Unix(),
-			To: time.Now().Unix(),
+			To:   time.Now().Unix(),
 		}.SetType())
 
 		var got websocket_models.MessageHistory
 		cli.conn.ReadJSON(&got)
-		
+
 		if len(got.Messages) != 0 {
 			t.Fail()
 		}
@@ -398,12 +411,12 @@ func TestMessageHistoryOnWebsocket(t *testing.T) {
 
 		cli.conn.WriteJSON(websocket_models.MessageHistory{
 			From: from.Unix(),
-			To: time.Now().Unix(),
+			To:   time.Now().Unix(),
 		}.SetType())
 
 		var got websocket_models.MessageHistory
 		cli.conn.ReadJSON(&got)
-		
+
 		if len(got.Messages) != 50 {
 			t.Fail()
 		}
