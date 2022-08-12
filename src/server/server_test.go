@@ -421,4 +421,21 @@ func TestMessageHistoryOnWebsocket(t *testing.T) {
 			t.Fail()
 		}
 	})
+
+	t.Run("InvalidMessageInsert", func(t *testing.T) {
+		_, cli, close := StartServerAndConnect("gopher123", "pass", "/register")
+		defer close()
+
+		cli.conn.WriteJSON(websocket_models.SendMessage{
+			Message: "error",
+		}.SetType())
+
+		var got websocket_models.GenericError
+		cli.conn.ReadJSON(&got)
+		expected := websocket_models.GenericError{Error: "DatabaseError"}.SetType()
+
+		if got != expected {
+			t.Errorf("got %v expected %v", got, expected)
+		}
+	})
 }

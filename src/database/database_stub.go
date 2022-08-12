@@ -11,7 +11,7 @@ import (
 
 type DoesNotExist struct{}
 
-func (d *DoesNotExist) Error() string {
+func (d DoesNotExist) Error() string {
 	return "Does Not Exist!"
 }
 
@@ -42,6 +42,9 @@ type StubDatabase struct {
 }
 
 func (s *StubDatabase) InsertMessage(m *Message) error {
+	if m.Content == "error" {
+		return DoesNotExist{}
+	}
 	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(m.Timestamp, 0))
 	s.Messages.Store(m.MessageID.Hex(), m)
 	return nil
