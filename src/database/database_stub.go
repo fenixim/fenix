@@ -8,6 +8,25 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+type WrappedMap struct {
+	InternalMap *sync.Map
+}
+
+func (m *WrappedMap) Load(key interface{}) (interface{}, bool) {
+	return m.InternalMap.Load(key)
+}
+
+func (m *WrappedMap) Store(key interface{}, value interface{}) {
+	m.InternalMap.Store(key, value)
+}
+
+func (m *WrappedMap) Delete(key interface{}) {
+	m.InternalMap.Delete(key)
+}
+
+func (m *WrappedMap) Range(f func(key any, value any) bool) {
+	m.InternalMap.Range(f)
+}
 
 type DoesNotExist struct{}
 
@@ -46,6 +65,7 @@ func (s *StubDatabase) InsertMessage(m *Message) error {
 		return DoesNotExist{}
 	}
 	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(m.Timestamp, 0))
+	
 	s.Messages.Store(m.MessageID.Hex(), m)
 	return nil
 }

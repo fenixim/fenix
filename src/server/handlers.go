@@ -49,6 +49,7 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 	}
 
 	err = m.hub.Database.InsertMessage(&db_msg)
+
 	if err != nil {
 		client.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "DatabaseError"}
 	}
@@ -60,10 +61,6 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 func (m *MessageHandler) HandleMessageHistory(b []byte, client *Client) {
 	hist := &websocket_models.MessageHistory{}
 	json.Unmarshal(b, hist)
-	if hist.From == 0 || hist.To == 0 {
-		client.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "BadFormat", Message: "MessageHistory needs From and To fields"}
-		return
-	}
 
 	msgs, err := m.hub.Database.GetMessagesBetween(hist.From, hist.To, 50)
 	if err != nil {

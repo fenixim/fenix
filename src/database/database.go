@@ -37,12 +37,13 @@ func (db *MongoDatabase) makeContext() (context.Context, context.CancelFunc) {
 
 func (db *MongoDatabase) InsertMessage(m *Message) error {
 	coll := db.getDatabase().Collection("messages")
-	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(m.Timestamp, 0))
 
 	ctx, cancel := db.makeContext()
 	defer cancel()
 
-	_, err := coll.InsertOne(ctx, m)
+	res, err := coll.InsertOne(ctx, m)
+
+	m.MessageID = res.InsertedID.(primitive.ObjectID)
 	return err
 }
 
@@ -104,12 +105,12 @@ func (db *MongoDatabase) DeleteMessage(m *Message) error {
 
 func (db *MongoDatabase) InsertUser(u *User) error {
 	coll := db.getDatabase().Collection("messages")
-	u.UserID = primitive.NewObjectIDFromTimestamp(time.Now())
 
 	ctx, cancel := db.makeContext()
 	defer cancel()
 
-	_, err := coll.InsertOne(ctx, u)
+	res, err := coll.InsertOne(ctx, u)
+	u.UserID = res.InsertedID.(primitive.ObjectID)
 	return err
 }
 

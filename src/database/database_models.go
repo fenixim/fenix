@@ -8,14 +8,14 @@ import (
 )
 
 type Message struct {
-	MessageID primitive.ObjectID `bson:"_id"`
+	MessageID primitive.ObjectID `bson:"_id,omitempty"`
 	Content   string
 	Timestamp int64
 	Author    string
 }
 
 type User struct {
-	UserID   primitive.ObjectID `bson:"_id"`
+	UserID   primitive.ObjectID `bson:"_id,omitempty"`
 	Username string
 	Password []byte
 	Salt     []byte

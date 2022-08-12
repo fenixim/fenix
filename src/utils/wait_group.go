@@ -14,9 +14,9 @@ func (n *NameAlreadyExists) Error() string {
 // Has counter visible for easy monitoring of goroutines and Names for what goroutine is still running
 // To create WaitGroupCounter, call NewWaitGroupCounter()
 type WaitGroupCounter struct {
-	WaitGroup sync.WaitGroup
+	WaitGroup *sync.WaitGroup
 	Counter   int
-	Names     sync.Map
+	Names     *sync.Map
 }
 
 // Adds a goroutine to the WaitGroup
@@ -45,4 +45,11 @@ func (w *WaitGroupCounter) Done(name string) {
 
 func (w *WaitGroupCounter) Wait() {
 	w.WaitGroup.Wait()
+}
+
+func NewWaitGroupCounter() *WaitGroupCounter {
+	return &WaitGroupCounter{
+		WaitGroup: &sync.WaitGroup{},
+		Names: &sync.Map{},
+	}
 }
