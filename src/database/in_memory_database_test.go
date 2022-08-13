@@ -26,22 +26,31 @@ func TestInMemoryDatabase(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("insert 1 message length", func(testing *testing.T) {
-		db := database.NewInMemoryDatabase()
-		db.InsertMessage(database.NewMessage("gopher", "hello"))
+	t.Run("insert message length", func(testing *testing.T) {
+		for i := 1; i < 3; i++ {
+			db := database.NewInMemoryDatabase()
+			for j := 0; j < i; j++ {
+				db.InsertMessage(
+					database.NewMessage("gopher", "hello"))
+			}
 
-		got := len(db.GetMessagesBetween(0, time.Now().Unix(), 50))
-		expected := 1
-		test_utils.AssertEqual(t, got, expected)
+			got := len(db.GetMessagesBetween(0, time.Now().Unix(), 50))
+			expected := i
+			test_utils.AssertEqual(t, got, expected)
+		}
 	})
 
-	t.Run("insert 2 message length", func(testing *testing.T) {
-		db := database.NewInMemoryDatabase()
-		db.InsertMessage(database.NewMessage("gopher", "hello"))
-		db.InsertMessage(database.NewMessage("gopher", "hello"))
+	t.Run("message content", func(testing *testing.T) {
+		testCases := []string{"hello", "yay"}
 
-		got := len(db.GetMessagesBetween(0, time.Now().Unix(), 50))
-		expected := 2
-		test_utils.AssertEqual(t, got, expected)
+		for _, test := range(testCases) {
+			db := database.NewInMemoryDatabase()
+			db.InsertMessage(database.NewMessage("gopher", test))
+
+			history := db.GetMessagesBetween(0, time.Now().Unix(), 1)
+			got := history[0].Content
+			expected := test
+			test_utils.AssertEqual(t, got, expected)
+		}
 	})
 }

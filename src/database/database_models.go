@@ -26,7 +26,7 @@ func (u *User) HashPassword() {
 }
 
 func NewMessage(username, content string) *Message {
-	m := Message{}
+	m := Message{Content: content}
 
 	return &m
 }

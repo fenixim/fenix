@@ -8,7 +8,7 @@ func min(a, b int64) int64 {
 }
 
 type InMemoryDatabase struct {
-	size int64
+	history []Message
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
@@ -16,15 +16,10 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 }
 
 func (db *InMemoryDatabase) GetMessagesBetween(_, _, limit int64) []Message {
-	messages := []Message{}
-	historySize := min(db.size, limit)
-	for i := int64(0); i < historySize; i++ {
-		messages = append(messages, *NewMessage("", ""))
-	}
-
-	return messages
+	historySize := min(int64(len(db.history)), limit)
+	return db.history[:historySize]
 }
 
 func (db *InMemoryDatabase) InsertMessage(m *Message) {
-	db.size += 1
+	db.history = append(db.history, *m)
 }
