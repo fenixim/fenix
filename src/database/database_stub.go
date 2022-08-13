@@ -93,18 +93,6 @@ func (s *StubDatabase) GetMessagesBetween(a, b, limit int64) ([]Message, error) 
 	return m.M, nil
 }
 
-func (s *StubDatabase) GetMessage(m *Message) error {
-	message, _ := s.Messages.Load(m.MessageID.Hex())
-	typesMessage := (message).(*Message)
-	*m = *typesMessage
-	return nil
-}
-
-func (s *StubDatabase) DeleteMessage(m *Message) error {
-	s.Messages.Delete(m.MessageID.Hex())
-	return nil
-}
-
 func (s *StubDatabase) InsertUser(u *User) error {
 	u.UserID = primitive.NewObjectIDFromTimestamp(time.Now())
 	s.UsersById.Store(u.UserID.Hex(), u)

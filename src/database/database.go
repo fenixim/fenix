@@ -14,7 +14,6 @@ import (
 type Database interface {
 	InsertMessage(*Message) error
 	GetMessagesBetween(int64, int64, int64) ([]Message, error)
-	DeleteMessage(*Message) error
 
 	InsertUser(*User) error
 	GetUser(*User) error
@@ -69,21 +68,6 @@ func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]Me
 
 	err = cur.All(context.Background(), &res)
 	return res, err
-}
-
-func (db *MongoDatabase) DeleteMessage(m *Message) error {
-	coll := db.getDatabase().Collection("messages")
-	q := bson.D{{
-		"_id", bson.D{{
-			"$eq", m.MessageID.Hex(),
-		}},
-	}}
-	ctx, cancel := db.makeContext()
-	defer cancel()
-
-	_, err := coll.DeleteOne(ctx, q)
-
-	return err
 }
 
 func (db *MongoDatabase) InsertUser(u *User) error {
