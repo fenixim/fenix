@@ -1,16 +1,24 @@
 package database
 
+func min(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 type InMemoryDatabase struct {
-	size int
+	size int64
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
 	return &InMemoryDatabase{}
 }
 
-func (db *InMemoryDatabase) GetMessagesBetween(int64, int64, int64) []Message {
+func (db *InMemoryDatabase) GetMessagesBetween(_, _, limit int64) []Message {
 	messages := []Message{}
-	for i := 0; i < db.size; i++ {
+	historySize := min(db.size, limit)
+	for i := int64(0); i < historySize; i++ {
 		messages = append(messages, *NewMessage("", ""))
 	}
 

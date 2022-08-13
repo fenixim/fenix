@@ -16,9 +16,18 @@ func TestInMemoryDatabase(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
+	t.Run("message history within limit", func(testing *testing.T) {
+		db := database.NewInMemoryDatabase()
+		db.InsertMessage(database.NewMessage("gopher", "hello"))
+
+		got := len(db.GetMessagesBetween(0, time.Now().Unix(), 0))
+		expected := 0
+
+		test_utils.AssertEqual(t, got, expected)
+	})
+
 	t.Run("insert 1 message length", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
-
 		db.InsertMessage(database.NewMessage("gopher", "hello"))
 
 		got := len(db.GetMessagesBetween(0, time.Now().Unix(), 50))
@@ -28,7 +37,6 @@ func TestInMemoryDatabase(t *testing.T) {
 
 	t.Run("insert 2 message length", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
-
 		db.InsertMessage(database.NewMessage("gopher", "hello"))
 		db.InsertMessage(database.NewMessage("gopher", "hello"))
 
