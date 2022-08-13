@@ -5,13 +5,9 @@ import (
 	"testing"
 )
 
-func newInMemoryDatabase() *database.InMemoryDatabase {
-	return &database.InMemoryDatabase{}
-}
-
 func TestInMemoryDatabase(t *testing.T) {
 	t.Run("empty message history", func(testing *testing.T) {
-		db := newInMemoryDatabase()
+		db := database.NewInMemoryDatabase()
 
 		got := len(db.GetMessagesBetween(0, 0, 50))
 		expected := 0
