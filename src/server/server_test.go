@@ -31,6 +31,46 @@ type clientFields struct {
 	close func()
 }
 
+func assertEqual(t *testing.T, got, expected interface{}) {
+	t.Helper()
+
+	if got != expected {
+		t.Errorf("got %v want %v", got, expected)
+	}
+}
+
+func askHistory(t *testing.T, cli *clientFields, from, to int64) {
+	t.Helper()
+
+	err := cli.conn.WriteJSON(
+		websocket_models.MessageHistory{From: from, To: to}.SetType())
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func send(t *testing.T, cli *clientFields, content string) {
+	t.Helper()
+
+	err := cli.conn.WriteJSON(
+		websocket_models.SendMessage{Message: content}.SetType())
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func recvHistory(t *testing.T, cli *clientFields) websocket_models.MessageHistory {
+	t.Helper()
+
+	var resProto websocket_models.MessageHistory
+	err := cli.conn.ReadJSON(&resProto)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return resProto
+}
+
 func StartServer_() *serverFields {
 	wg := utils.NewWaitGroupCounter()
 	hub := server.NewHub(wg, &database.StubDatabase{UsersById: &sync.Map{}, Messages: &sync.Map{}, UsersByUsername: &sync.Map{}})
@@ -82,99 +122,67 @@ func StartServerAndConnect(username, password, endpoint string) (*serverFields, 
 	}
 }
 
-func TestWhoAmIOnWebsocket(t *testing.T) {
-	t.Run("NormalWhoAmI", func(t *testing.T) {
-		expectedUsername := "gopher1234"
-
-		srv, cli, close := StartServerAndConnect(expectedUsername, "mytotallyrealpassword", "/register")
-
-		defer close()
+func TestProtocols(t *testing.T) {
+	t.Run("whoami", func(t *testing.T) {
+		_, cli, closeConn := StartServerAndConnect("gopher123", "pass", "/register")
+		defer closeConn()
 
 		cli.conn.WriteJSON(websocket_models.WhoAmI{}.SetType())
-		var whoami websocket_models.WhoAmI
 
-		cli.conn.ReadJSON(&whoami)
+		var resProto websocket_models.WhoAmI
+		cli.conn.ReadJSON(&resProto)
 
-		gotUsername := whoami.Username
-		if expectedUsername != gotUsername {
-			t.Fail()
-		}
-		u := &database.User{Username: expectedUsername}
-		srv.hub.Database.GetUser(u)
-		expectedID := u.UserID.Hex()
-		gotID := whoami.ID
-
-		if expectedID != gotID {
-			t.Fail()
-		}
+		expected := "gopher123"
+		got := resProto.Username
+		assertEqual(t, got, expected)
 	})
-}
 
-func TestSendMessageOnWebsocket(t *testing.T) {
-	compare := func(got, expected websocket_models.BroadcastMessage, t *testing.T) {
-		if got.Author.ID != expected.Author.ID {
-			t.Fail()
-		}
-		if got.Author.Username != expected.Author.Username {
-			t.Fail()
-		}
-		if got.Message != expected.Message {
-			t.Fail()
-		}
-	}
-	t.Run("NormalSendMessage", func(t *testing.T) {
-		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
-		defer close()
-		user := database.User{Username: "gopher123"}
-		srv.hub.Database.GetUser(&user)
+	t.Run("broadcast message", func(t *testing.T) {
+		_, cli, closeConn := StartServerAndConnect("gopher123", "pass", "/register")
+		defer closeConn()
 
-		expectedMessage := "Hello there!\nGeneral Kenobi, you are a bold one!"
-		expected := websocket_models.BroadcastMessage{
-			Author: websocket_models.Author{
-				ID:       user.UserID.Hex(),
-				Username: user.Username,
-			},
-			Message: expectedMessage,
-		}
-		err := cli.conn.WriteJSON(websocket_models.SendMessage{
-			Message: expectedMessage,
-		}.SetType())
+		send(t, cli, "General Kenobi, you are a bold one!")
 
-		if err != nil {
-			panic(err)
-		}
-		var got websocket_models.BroadcastMessage
-		cli.conn.ReadJSON(&got)
+		var resProto websocket_models.BroadcastMessage
+		cli.conn.ReadJSON(&resProto)
 
-		compare(got, expected, t)
+		got := resProto.Message
+		expected := "General Kenobi, you are a bold one!"
+		assertEqual(t, got, expected)
 	})
-	t.Run("EmptySendMessage", func(t *testing.T) {
 
-		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
+	t.Run("broadcast username", func(t *testing.T) {
+		_, cli, close := StartServerAndConnect("gopher123", "pass", "/register")
 		defer close()
 
-		user := database.User{Username: "gopher123"}
-		srv.hub.Database.GetUser(&user)
+		send(t, cli, "General Kenobi, you are a bold one!")
 
-		expected := websocket_models.GenericError{
-			Error: "message_empty",
-		}
+		var resProto websocket_models.BroadcastMessage
+		cli.conn.ReadJSON(&resProto)
 
-		cli.conn.WriteJSON(websocket_models.SendMessage{}.SetType())
+		got := resProto.Author.Username
+		expected := "gopher123"
+		assertEqual(t, got, expected)
+	})
 
-		var got websocket_models.GenericError
-		err := cli.conn.ReadJSON(&got)
+	t.Run("send empty message", func(t *testing.T) {
+
+		_, cli, closeConn := StartServerAndConnect("gopher123", "pass", "/register")
+		defer closeConn()
+
+		send(t, cli, "")
+
+		var resProto websocket_models.GenericError
+		err := cli.conn.ReadJSON(&resProto)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if got.Error != expected.Error {
-			t.Fail()
-		}
+		expected := "message_empty"
+		got := resProto.Error
+		assertEqual(t, got, expected)
 	})
-}
 
-func TestMessageHistoryOnWebsocket(t *testing.T) {
 	populate := func(srv *serverFields, count int) {
 		user := database.User{Username: "gopher123"}
 		srv.hub.Database.GetUser(&user)
@@ -188,76 +196,52 @@ func TestMessageHistoryOnWebsocket(t *testing.T) {
 		}
 	}
 
-	t.Run("NormalMessageHistory", func(t *testing.T) {
-		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
-		defer close()
-		from := time.Now()
-		populate(srv, 10)
+	t.Run("message history length", func(t *testing.T) {
+		srv, cli, closeConn := StartServerAndConnect("gopher123", "pass", "/register")
+		defer closeConn()
 
-		cli.conn.WriteJSON(websocket_models.MessageHistory{
-			From: from.Unix(),
-			To:   time.Now().Unix(),
-		}.SetType())
+		populate(srv, 1)
+		askHistory(t, cli, 0, time.Now().Unix())
 
-		var got websocket_models.MessageHistory
-		cli.conn.ReadJSON(&got)
-
-		if len(got.Messages) != 10 {
-			t.Fail()
-		}
+		got := len(recvHistory(t, cli).Messages)
+		expected := 1
+		assertEqual(t, got, expected)
 	})
 
-	t.Run("EmptyMessageHistory", func(t *testing.T) {
-		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
-		defer close()
-		from := time.Now()
-		populate(srv, 0)
+	t.Run("empty message history length", func(t *testing.T) {
+		_, cli, closeConn := StartServerAndConnect("gopher123", "pass", "/register")
+		defer closeConn()
 
-		cli.conn.WriteJSON(websocket_models.MessageHistory{
-			From: from.Unix(),
-			To:   time.Now().Unix(),
-		}.SetType())
+		askHistory(t, cli, 0, time.Now().Unix())
 
-		var got websocket_models.MessageHistory
-		cli.conn.ReadJSON(&got)
-
-		if len(got.Messages) != 0 {
-			t.Fail()
-		}
-	})
-	t.Run("FullMessageHistory", func(t *testing.T) {
-		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
-		defer close()
-		from := time.Now()
-		populate(srv, 100)
-
-		cli.conn.WriteJSON(websocket_models.MessageHistory{
-			From: from.Unix(),
-			To:   time.Now().Unix(),
-		}.SetType())
-
-		var got websocket_models.MessageHistory
-		cli.conn.ReadJSON(&got)
-
-		if len(got.Messages) != 50 {
-			t.Fail()
-		}
+		got := len(recvHistory(t, cli).Messages)
+		expected := 0
+		assertEqual(t, got, expected)
 	})
 
-	t.Run("InvalidMessageInsert", func(t *testing.T) {
+	t.Run("message history limit length", func(t *testing.T) {
+		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
+		defer close()
+
+		populate(srv, 51)
+		askHistory(t, cli, 0, time.Now().Unix())
+
+		got := len(recvHistory(t, cli).Messages)
+		expected := 50
+		assertEqual(t, got, expected)
+	})
+
+	t.Run("database error", func(t *testing.T) {
 		_, cli, close := StartServerAndConnect("gopher123", "pass", "/register")
 		defer close()
 
-		cli.conn.WriteJSON(websocket_models.SendMessage{
-			Message: "error",
-		}.SetType())
+		send(t, cli, "error")
 
-		var got websocket_models.GenericError
-		cli.conn.ReadJSON(&got)
-		expected := websocket_models.GenericError{Error: "DatabaseError"}.SetType()
+		var resProto websocket_models.GenericError
+		cli.conn.ReadJSON(&resProto)
 
-		if got != expected {
-			t.Errorf("got %v expected %v", got, expected)
-		}
+		got := resProto.Error
+		expected := "DatabaseError"
+		assertEqual(t, got, expected)
 	})
 }

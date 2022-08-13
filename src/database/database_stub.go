@@ -8,6 +8,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
 type WrappedMap struct {
 	InternalMap *sync.Map
 }
@@ -65,7 +66,7 @@ func (s *StubDatabase) InsertMessage(m *Message) error {
 		return DoesNotExist{}
 	}
 	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(m.Timestamp, 0))
-	
+
 	s.Messages.Store(m.MessageID.Hex(), m)
 	return nil
 }

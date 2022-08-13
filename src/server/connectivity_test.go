@@ -12,14 +12,6 @@ type credentials struct {
 	password string
 }
 
-func assertEqual(t *testing.T, got, expected interface{}) {
-	t.Helper()
-
-	if got != expected {
-		t.Errorf("got %v want %v", got, expected)
-	}
-}
-
 func register(t *testing.T, srv *serverFields, auth credentials) *clientFields {
 	t.Helper()
 
