@@ -1,7 +1,7 @@
 package database
 
 type InMemoryDatabase struct {
-	size int64
+	size int
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
@@ -9,13 +9,14 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 }
 
 func (db *InMemoryDatabase) GetMessagesBetween(int64, int64, int64) []Message {
-	if db.size == 0 {
-		return []Message{}
-	} else {
-		return []Message{*NewMessage("", "")}
+	messages := []Message{}
+	for i := 0; i < db.size; i++ {
+		messages = append(messages, *NewMessage("", ""))
 	}
+
+	return messages
 }
 
 func (db *InMemoryDatabase) InsertMessage(m *Message) {
-	db.size = 1
+	db.size += 1
 }

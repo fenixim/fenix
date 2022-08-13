@@ -25,4 +25,15 @@ func TestInMemoryDatabase(t *testing.T) {
 		expected := 1
 		test_utils.AssertEqual(t, got, expected)
 	})
+
+	t.Run("insert 2 message length", func(testing *testing.T) {
+		db := database.NewInMemoryDatabase()
+
+		db.InsertMessage(database.NewMessage("gopher", "hello"))
+		db.InsertMessage(database.NewMessage("gopher", "hello"))
+
+		got := len(db.GetMessagesBetween(0, time.Now().Unix(), 50))
+		expected := 2
+		test_utils.AssertEqual(t, got, expected)
+	})
 }
