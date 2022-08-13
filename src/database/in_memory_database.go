@@ -16,8 +16,13 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 }
 
 func (db *InMemoryDatabase) GetMessagesBetween(_, _, limit int64) []Message {
-	historySize := min(int64(len(db.history)), limit)
-	return db.history[:historySize]
+	partHistory := []Message{}
+	start := int64(len(db.history))
+	end := start - min(start, limit)
+	for i := start - 1; i > end - 1; i-- {
+		partHistory = append(partHistory, db.history[i])
+	}
+	return partHistory
 }
 
 func (db *InMemoryDatabase) InsertMessage(m *Message) {

@@ -46,6 +46,16 @@ func TestBasicOperations(t *testing.T) {
 		}
 	})
 
+	t.Run("limit takes most recent messages", func(testing *testing.T) {
+		db := database.NewInMemoryDatabase()
+		db.InsertMessage(database.NewMessage("gopher", "yay"))
+		db.InsertMessage(database.NewMessage("kryptic", "fair"))
+
+		history := db.GetMessagesBetween(0, time.Now().Unix(), 1)
+		got := history[0].Content
+		expected := "fair"
+		test_utils.AssertEqual(t, got, expected)
+	})
 }
 
 func TestMessages(t *testing.T) {
