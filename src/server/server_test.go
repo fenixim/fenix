@@ -1,9 +1,10 @@
-package server
+package server_test
 
 import (
 	"context"
 	"encoding/base64"
 	"fenix/src/database"
+	"fenix/src/server"
 	"fenix/src/utils"
 	"fenix/src/websocket_models"
 	"net/http"
@@ -18,7 +19,7 @@ import (
 
 type serverFields struct {
 	wg     *utils.WaitGroupCounter
-	hub    *ServerHub
+	hub    *server.ServerHub
 	server *httptest.Server
 	addr   url.URL
 	close  func()
@@ -32,7 +33,7 @@ type clientFields struct {
 
 func StartServer_() *serverFields {
 	wg := utils.NewWaitGroupCounter()
-	hub := NewHub(wg, &database.StubDatabase{UsersById: &sync.Map{}, Messages: &sync.Map{}, UsersByUsername: &sync.Map{}})
+	hub := server.NewHub(wg, &database.StubDatabase{UsersById: &sync.Map{}, Messages: &sync.Map{}, UsersByUsername: &sync.Map{}})
 
 	srv := httptest.NewServer(hub.HTTPRequestHandler())
 	u, err := url.ParseRequestURI(srv.URL)
@@ -58,7 +59,6 @@ func Connect_(username, password string, u url.URL) *clientFields {
 	auth := base64.StdEncoding.EncodeToString([]byte(a))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	conn, res, _ := websocket.DefaultDialer.DialContext(ctx, u.String(), http.Header{"Authorization": []string{"Basic " + auth}})
-	
 
 	return &clientFields{
 		conn: conn,
@@ -82,13 +82,12 @@ func StartServerAndConnect(username, password, endpoint string) (*serverFields, 
 	}
 }
 
-
 func TestWhoAmIOnWebsocket(t *testing.T) {
 	t.Run("NormalWhoAmI", func(t *testing.T) {
 		expectedUsername := "gopher1234"
 
 		srv, cli, close := StartServerAndConnect(expectedUsername, "mytotallyrealpassword", "/register")
-		
+
 		defer close()
 
 		cli.conn.WriteJSON(websocket_models.WhoAmI{}.SetType())
@@ -123,7 +122,7 @@ func TestSendMessageOnWebsocket(t *testing.T) {
 			t.Fail()
 		}
 	}
-	t.Run("NormalSendMessage", func(t *testing.T) {		
+	t.Run("NormalSendMessage", func(t *testing.T) {
 		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
 		defer close()
 		user := database.User{Username: "gopher123"}
@@ -140,7 +139,7 @@ func TestSendMessageOnWebsocket(t *testing.T) {
 		err := cli.conn.WriteJSON(websocket_models.SendMessage{
 			Message: expectedMessage,
 		}.SetType())
-		
+
 		if err != nil {
 			panic(err)
 		}
@@ -150,7 +149,7 @@ func TestSendMessageOnWebsocket(t *testing.T) {
 		compare(got, expected, t)
 	})
 	t.Run("EmptySendMessage", func(t *testing.T) {
-		
+
 		srv, cli, close := StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
 		defer close()
 

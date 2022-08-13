@@ -2,14 +2,6 @@ package utils
 
 import "sync"
 
-type NameAlreadyExists struct {
-	Name string
-}
-
-func (n *NameAlreadyExists) Error() string {
-	return "NameAlreadyExists: " + n.Name
-}
-
 // Custom sync.WaitGroup equivalent, for testing purposes
 // Has counter visible for easy monitoring of goroutines and Names for what goroutine is still running
 // To create WaitGroupCounter, call NewWaitGroupCounter()
@@ -26,7 +18,7 @@ func (w *WaitGroupCounter) Add(delta int, name string) error {
 	w.Counter += delta
 
 	if _, ok := w.Names.Load(name); ok {
-		return &NameAlreadyExists{Name: name}
+		return nil
 	}
 
 	w.Names.Store(name, true)
@@ -50,6 +42,6 @@ func (w *WaitGroupCounter) Wait() {
 func NewWaitGroupCounter() *WaitGroupCounter {
 	return &WaitGroupCounter{
 		WaitGroup: &sync.WaitGroup{},
-		Names: &sync.Map{},
+		Names:     &sync.Map{},
 	}
 }
