@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fenix/src/database"
 	"fenix/src/server"
+	"fenix/src/test_utils"
 	"fenix/src/utils"
 	"fenix/src/websocket_models"
 	"net/http"
@@ -29,14 +30,6 @@ type clientFields struct {
 	conn  *websocket.Conn
 	res   *http.Response
 	close func()
-}
-
-func assertEqual(t *testing.T, got, expected interface{}) {
-	t.Helper()
-
-	if got != expected {
-		t.Errorf("got %v want %v", got, expected)
-	}
 }
 
 func askHistory(t *testing.T, cli *clientFields, from, to int64) {
@@ -134,7 +127,7 @@ func TestProtocols(t *testing.T) {
 
 		expected := "gopher123"
 		got := resProto.Username
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("broadcast message", func(t *testing.T) {
@@ -148,7 +141,7 @@ func TestProtocols(t *testing.T) {
 
 		got := resProto.Message
 		expected := "General Kenobi, you are a bold one!"
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("broadcast username", func(t *testing.T) {
@@ -162,7 +155,7 @@ func TestProtocols(t *testing.T) {
 
 		got := resProto.Author.Username
 		expected := "gopher123"
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("send empty message", func(t *testing.T) {
@@ -180,7 +173,7 @@ func TestProtocols(t *testing.T) {
 
 		expected := "message_empty"
 		got := resProto.Error
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	populate := func(srv *serverFields, count int) {
@@ -205,7 +198,7 @@ func TestProtocols(t *testing.T) {
 
 		got := len(recvHistory(t, cli).Messages)
 		expected := 1
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("empty message history length", func(t *testing.T) {
@@ -216,7 +209,7 @@ func TestProtocols(t *testing.T) {
 
 		got := len(recvHistory(t, cli).Messages)
 		expected := 0
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("message history limit length", func(t *testing.T) {
@@ -228,7 +221,7 @@ func TestProtocols(t *testing.T) {
 
 		got := len(recvHistory(t, cli).Messages)
 		expected := 50
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("database error", func(t *testing.T) {
@@ -242,6 +235,6 @@ func TestProtocols(t *testing.T) {
 
 		got := resProto.Error
 		expected := "DatabaseError"
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 }

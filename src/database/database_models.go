@@ -24,3 +24,9 @@ type User struct {
 func (u *User) HashPassword() {
 	u.Password = pbkdf2.Key(u.Password, u.Salt, 100000, 32, sha512.New512_256)
 }
+
+func NewMessage(username, content string) *Message {
+	m := Message{}
+
+	return &m
+}

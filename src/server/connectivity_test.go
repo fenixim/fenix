@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"fenix/src/test_utils"
 	"net/http"
 	"testing"
 
@@ -32,7 +33,7 @@ func TestStatusCodes(t *testing.T) {
 		got := res.StatusCode
 		expected := http.StatusBadRequest
 
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("user doesn't exist", func(t *testing.T) {
@@ -42,7 +43,7 @@ func TestStatusCodes(t *testing.T) {
 		got := cli.res.StatusCode
 		expected := http.StatusForbidden
 
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 
 	})
 
@@ -58,7 +59,7 @@ func TestStatusCodes(t *testing.T) {
 		got := cli.res.StatusCode
 		expected := http.StatusForbidden
 
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("user does exist, right password", func(t *testing.T) {
@@ -73,7 +74,7 @@ func TestStatusCodes(t *testing.T) {
 		got := cli.res.StatusCode
 		expected := http.StatusSwitchingProtocols
 
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("user already exists, register", func(t *testing.T) {
@@ -86,7 +87,7 @@ func TestStatusCodes(t *testing.T) {
 		got := cli.res.StatusCode
 		expected := http.StatusConflict
 
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 
 	t.Run("for incorrect path", func(t *testing.T) {
@@ -96,6 +97,6 @@ func TestStatusCodes(t *testing.T) {
 		got := cli.res.StatusCode
 		expected := http.StatusNotFound
 
-		assertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
 	})
 }
