@@ -89,6 +89,7 @@ func (db *InMemoryDatabase) InsertMessage(m *Message) error {
 		return FakeDatabaseError{}
 	}
 
+	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(int64(len(db.messages)+1), 0))
 	db.messages = append(db.messages, m)
 	return nil
 }

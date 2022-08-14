@@ -16,6 +16,14 @@ type testCase struct {
 }
 
 func TestBasicOperations(t *testing.T) {
+	t.Run("message has id", func(testing *testing.T) {
+		db := database.NewInMemoryDatabase()
+		msg := database.NewMessage("gopher", "hello")
+		db.InsertMessage(msg)
+
+		test_utils.AssertNotEqual(t, msg.MessageID, primitive.NilObjectID)
+	})
+
 	t.Run("empty message history", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
 
