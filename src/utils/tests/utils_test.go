@@ -1,9 +1,9 @@
 package utils_test
 
 import (
+	"fenix/src/utils"
 	"testing"
 	"time"
-	"fenix/src/utils"
 )
 
 func TestWaitGroupCounterAdd(t *testing.T) {

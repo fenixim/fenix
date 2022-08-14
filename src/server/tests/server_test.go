@@ -120,7 +120,7 @@ func TestProtocols(t *testing.T) {
 	t.Run("database error", func(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer close()
-		
+
 		srv.Database.ShouldErrorOnNext = true
 		test_utils.MsgSend(t, cli, "this should error.")
 

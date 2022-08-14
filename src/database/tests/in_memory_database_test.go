@@ -1,7 +1,6 @@
 package database_test
 
 import (
-	
 	"crypto/rand"
 	"fenix/src/database"
 	"fenix/src/test_utils"
@@ -115,7 +114,7 @@ func TestTimestamps(t *testing.T) {
 	})
 
 	t.Run("messages after timestamp length", func(t *testing.T) {
-		history, _ := db.GetMessagesBetween(msg2.Timestamp - int64(time.Millisecond), time.Now().UnixNano(), 50)
+		history, _ := db.GetMessagesBetween(msg2.Timestamp-int64(time.Millisecond), time.Now().UnixNano(), 50)
 
 		got := len(history)
 		expected := 3
@@ -124,13 +123,13 @@ func TestTimestamps(t *testing.T) {
 	})
 
 	t.Run("messages between timestamps", func(t *testing.T) {
-		history, _ := db.GetMessagesBetween(msg2.Timestamp - int64(time.Millisecond), msg3.Timestamp + int64(time.Millisecond), 50)
+		history, _ := db.GetMessagesBetween(msg2.Timestamp-int64(time.Millisecond), msg3.Timestamp+int64(time.Millisecond), 50)
 		got := []string{}
 
 		expected := []string{msg3.Content, msg2.Content}
-		
+
 		for _, m := range history {
-			got = append(got,m.Content)
+			got = append(got, m.Content)
 		}
 
 		test_utils.AssertEqual(t, got, expected)
@@ -138,15 +137,15 @@ func TestTimestamps(t *testing.T) {
 }
 
 func TestUsers(t *testing.T) {
-	
-	InsertUser := func (db *database.InMemoryDatabase, username string) *database.User {
+
+	InsertUser := func(db *database.InMemoryDatabase, username string) *database.User {
 		u := &database.User{
 			Username: username,
 			Password: []byte("myawesomepassword"),
-			Salt: make([]byte, 16),
+			Salt:     make([]byte, 16),
 		}
 		rand.Read(u.Salt)
-		
+
 		db.InsertUser(u)
 		return u
 	}
@@ -161,13 +160,12 @@ func TestUsers(t *testing.T) {
 		test_utils.AssertNotEqual(t, got, dontWant)
 	})
 
-
 	t.Run("GetUser prioritizes userID", func(t *testing.T) {
 		db := database.NewInMemoryDatabase()
 		expected := InsertUser(db, "gopher123")
 
 		got := &database.User{
-			UserID: expected.UserID,
+			UserID:   expected.UserID,
 			Username: "NotMyUsername",
 		}
 
@@ -186,7 +184,7 @@ func TestUsers(t *testing.T) {
 		}
 
 		err := db.GetUser(got)
-		
+
 		test_utils.AssertEqual(t, err, nil)
 		test_utils.AssertEqual(t, got, expected)
 	})

@@ -58,11 +58,11 @@ func LoginClient(t *testing.T, srv *ServerFields, auth Credentials) *ClientField
 
 type ServerFields struct {
 	Database *database.InMemoryDatabase
-	Wg     *utils.WaitGroupCounter
-	Hub    *server.ServerHub
-	Server *httptest.Server
-	Addr   url.URL
-	Close  func()
+	Wg       *utils.WaitGroupCounter
+	Hub      *server.ServerHub
+	Server   *httptest.Server
+	Addr     url.URL
+	Close    func()
 }
 
 type ClientFields struct {
@@ -117,10 +117,10 @@ func StartServer() *ServerFields {
 	addr := url.URL{Scheme: "ws", Host: u.Host}
 	return &ServerFields{
 		Database: db,
-		Wg:     wg,
-		Hub:    hub,
-		Server: srv,
-		Addr:   addr,
+		Wg:       wg,
+		Hub:      hub,
+		Server:   srv,
+		Addr:     addr,
 		Close: func() {
 			hub.Shutdown()
 			srv.Close()
