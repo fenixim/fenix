@@ -89,13 +89,21 @@ func TestMessages(t *testing.T) {
 
 func TestTimestamps(t *testing.T) {
 	db := database.NewInMemoryDatabase()
-	db.InsertMessage(database.NewMessage("gopher", "hello"))
-	stamp1 := time.Now().UnixNano()
-	time.Sleep(10 * time.Millisecond)
-	db.InsertMessage(database.NewMessage("bloblet", "yay"))
+	msg1 := database.NewMessage("gopher", "hello")
+	time.Sleep(2 * time.Millisecond)
+	msg2 := database.NewMessage("billy", "bye")
+	time.Sleep(2 * time.Millisecond)
+	msg3 := database.NewMessage("luk", "go")
+	time.Sleep(2 * time.Millisecond)
+	msg4 := database.NewMessage("josiah", "tdd")
+
+	db.InsertMessage(msg1)
+	db.InsertMessage(msg2)
+	db.InsertMessage(msg3)
+	db.InsertMessage(msg4)
 
 	t.Run("messages before timestamp length", func(t *testing.T) {
-		history, _ := db.GetMessagesBetween(0, stamp1, 2)
+		history, _ := db.GetMessagesBetween(0, msg1.Timestamp, 50)
 		got := len(history)
 		expected := 1
 
@@ -103,10 +111,23 @@ func TestTimestamps(t *testing.T) {
 	})
 
 	t.Run("messages after timestamp length", func(t *testing.T) {
-		history, _ := db.GetMessagesBetween(stamp1, time.Now().UnixNano(), 2)
+		history, _ := db.GetMessagesBetween(msg2.Timestamp - int64(time.Millisecond), time.Now().UnixNano(), 50)
 
 		got := len(history)
-		expected := 1
+		expected := 3
+
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("messages between timestamps", func(t *testing.T) {
+		history, _ := db.GetMessagesBetween(msg2.Timestamp - int64(time.Millisecond), msg3.Timestamp + int64(time.Millisecond), 50)
+		got := []string{}
+
+		expected := []string{msg3.Content, msg2.Content}
+		
+		for _, m := range history {
+			got = append(got,m.Content)
+		}
 
 		test_utils.AssertEqual(t, got, expected)
 	})

@@ -16,7 +16,7 @@ func (db *InMemoryDatabase) GetMessagesBetween(a, b, limit int64) ([]*Message, e
 	partHistory := messages{}
 
 	for _, m := range db.history {
-		if m.Timestamp > a && m.Timestamp <= b {
+		if m.Timestamp >= a && m.Timestamp <= b {
 			partHistory.M = append(partHistory.M, m)
 		}
 	}

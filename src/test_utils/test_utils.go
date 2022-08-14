@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ import (
 func AssertEqual(t *testing.T, got, expected interface{}) {
 	t.Helper()
 
-	if got != expected {
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v want %v", got, expected)
 	}
 }
