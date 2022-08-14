@@ -2,8 +2,9 @@ package server
 
 import (
 	"encoding/json"
-	"fenix/src/models"
-	"fenix/src/utils"
+	"fenix/src/database"
+	"fenix/src/websocket_models"
+	"fmt"
 	"log"
 
 	"github.com/gorilla/websocket"
@@ -21,38 +22,38 @@ func (c ClientQuit) GetEventType() string {
 
 // Representation of the client for the server.  Spawns its own goroutines for message processing.
 type Client struct {
-	hub    *ServerHub
-	conn   *websocket.Conn
-	Nick   string
-	ID     string
-	Closed bool
-
+	hub                  *ServerHub
+	conn                 *websocket.Conn
+	Closed               bool
+	User                 database.User
 	ClientEventLoop      chan ClientEvent
-	OutgoingPayloadQueue chan models.JSONModel
-
-	wg *utils.WaitGroupCounter
+	OutgoingPayloadQueue chan websocket_models.JSONModel
 }
 
 // Can be called multiple times.  Should be deferred at end of functions
 func (c *Client) Close(wg_id string) {
+	if wg_id != "" {
+		c.hub.Wg.Done(wg_id)
+	}
+	if !c.Closed {
+		c.ClientEventLoop <- ClientQuit{}
+	}
+
 	c.Closed = true
-	c.hub.clients.Delete(c.ID)
+	c.hub.clients.Delete(c.User.UserID)
 
 	c.conn.Close()
-
-	if wg_id == "" {
-		return
-	}
-	c.wg.Done(wg_id)
 }
 
-func (c *Client) New(wg *utils.WaitGroupCounter) {
+func (c *Client) New() {
 	c.ClientEventLoop = make(chan ClientEvent)
-	c.OutgoingPayloadQueue = make(chan models.JSONModel)
+	c.OutgoingPayloadQueue = make(chan websocket_models.JSONModel)
+
+	c.User = database.User{Username: c.User.Username}
+	c.hub.Database.GetUser(&c.User)
 
 	c.conn.SetCloseHandler(c.OnClose)
 
-	c.wg = wg
 	go c.listenOnEventLoop()
 	go c.listenOnWebsocket()
 }
@@ -60,17 +61,17 @@ func (c *Client) New(wg *utils.WaitGroupCounter) {
 func (c *Client) OnClose(code int, text string) error {
 	c.ClientEventLoop <- ClientQuit{}
 	c.Closed = true
-	log.Printf("Client %v closed: Code %v, Reason %v", c.Nick, code, text)
+	log.Printf("Client %v closed: Code %v, Reason %v", c.User.Username, code, text)
 	return nil
 }
 
 func (c *Client) listenOnWebsocket() {
-	err := c.wg.Add(1, "Client_ListenOnWebsocket__"+c.ID)
+	err := c.hub.Wg.Add(1, "Client_ListenOnWebsocket__"+c.User.UserID.Hex())
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
 
-	defer c.Close("Client_ListenOnWebsocket__" + c.ID)
+	defer c.Close("Client_ListenOnWebsocket__" + c.User.UserID.Hex())
 
 	for {
 		var t struct {
@@ -78,16 +79,20 @@ func (c *Client) listenOnWebsocket() {
 		}
 		_, b, err := c.conn.ReadMessage()
 
+		if websocket.IsUnexpectedCloseError(err) {
+			return
+		}
+
 		if err != nil {
-			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Error decoding: " + err.Error()}
+			fmt.Println(err)
+			c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "BadFormat", Message: "Error decoding: " + err.Error()}
 			return
 		}
 
 		err = json.Unmarshal(b, &t)
 
 		if err != nil {
-			c.OutgoingPayloadQueue <- models.BadFormat{Message: "Malformed JSON"}
-			c.Closed = true
+			c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "BadFormat", Message: "Malformed JSON"}
 			return
 		}
 
@@ -98,12 +103,12 @@ func (c *Client) listenOnWebsocket() {
 }
 
 func (c *Client) listenOnEventLoop() {
-	err := c.wg.Add(1, "Client_ListenOnEventLoop__"+c.ID)
+	err := c.hub.Wg.Add(1, "Client_ListenOnEventLoop__"+c.User.UserID.Hex())
 	if err != nil {
 		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
 
-	defer c.Close("Client_ListenOnEventLoop__" + c.ID)
+	defer c.Close("Client_ListenOnEventLoop__" + c.User.UserID.Hex())
 	for {
 		select {
 		case e := <-c.ClientEventLoop:
@@ -116,9 +121,10 @@ func (c *Client) listenOnEventLoop() {
 			if c.Closed {
 				return
 			}
-			err := c.conn.WriteJSON(m)
+
+			err := c.conn.WriteJSON(m.SetType())
 			if err != nil {
-				log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.Nick, err)
+				log.Printf("Error sending messsage of type %v to %v: %v", m.Type(), c.User.Username, err)
 				c.Closed = true
 				return
 			}

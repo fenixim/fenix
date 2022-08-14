@@ -1,12 +1,13 @@
-package utils
+package utils_test
 
 import (
+	"fenix/src/utils"
 	"testing"
 	"time"
 )
 
 func TestWaitGroupCounterAdd(t *testing.T) {
-	wg := NewWaitGroupCounter()
+	wg := utils.NewWaitGroupCounter()
 
 	err := wg.Add(1, "TestWaitGroupCounterAdd")
 
@@ -20,7 +21,7 @@ func TestWaitGroupCounterAdd(t *testing.T) {
 }
 
 func TestWaitGroupCounterDone(t *testing.T) {
-	wg := NewWaitGroupCounter()
+	wg := utils.NewWaitGroupCounter()
 
 	err := wg.Add(1, "TestWaitGroupCounterDone")
 
@@ -34,7 +35,7 @@ func TestWaitGroupCounterDone(t *testing.T) {
 	}
 }
 func TestWaitGroupCounterWait(t *testing.T) {
-	wg := NewWaitGroupCounter()
+	wg := utils.NewWaitGroupCounter()
 
 	err := wg.Add(1, "TestWaitGroupCounterWait")
 
