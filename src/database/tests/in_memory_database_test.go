@@ -1,10 +1,14 @@
 package database_test
 
 import (
+	
+	"crypto/rand"
 	"fenix/src/database"
 	"fenix/src/test_utils"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type testCase struct {
@@ -130,5 +134,84 @@ func TestTimestamps(t *testing.T) {
 		}
 
 		test_utils.AssertEqual(t, got, expected)
+	})
+}
+
+func TestUsers(t *testing.T) {
+	
+	InsertUser := func (db *database.InMemoryDatabase, username string) *database.User {
+		u := &database.User{
+			Username: username,
+			Password: []byte("myawesomepassword"),
+			Salt: make([]byte, 16),
+		}
+		rand.Read(u.Salt)
+		
+		db.InsertUser(u)
+		return u
+	}
+
+	t.Run("InsertUser provides userID", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+
+		u := InsertUser(db, "gopher123")
+		got := u.UserID
+		dontWant := primitive.NilObjectID
+
+		test_utils.AssertNotEqual(t, got, dontWant)
+	})
+
+
+	t.Run("GetUser prioritizes userID", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+		expected := InsertUser(db, "gopher123")
+
+		got := &database.User{
+			UserID: expected.UserID,
+			Username: "NotMyUsername",
+		}
+
+		err := db.GetUser(got)
+
+		test_utils.AssertEqual(t, err, nil)
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("GetUser uses username", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+		expected := InsertUser(db, "gopher123")
+
+		got := &database.User{
+			Username: expected.Username,
+		}
+
+		err := db.GetUser(got)
+		
+		test_utils.AssertEqual(t, err, nil)
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("GetUser with ID returns error", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+
+		user := &database.User{
+			UserID: primitive.NewObjectIDFromTimestamp(time.Now()),
+		}
+
+		err := db.GetUser(user)
+
+		test_utils.AssertEqual(t, err, database.DoesNotExist{})
+	})
+
+	t.Run("GetUser with Username returns error", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+
+		user := &database.User{
+			Username: "NotMyUsername",
+		}
+
+		err := db.GetUser(user)
+
+		test_utils.AssertEqual(t, err, database.DoesNotExist{})
 	})
 }

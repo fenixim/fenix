@@ -17,7 +17,6 @@ type Database interface {
 
 	InsertUser(*User) error
 	GetUser(*User) error
-	DeleteUser(*User) error
 }
 
 type MongoDatabase struct {

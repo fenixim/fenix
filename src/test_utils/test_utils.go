@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +22,14 @@ func AssertEqual(t *testing.T, got, expected interface{}) {
 
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v want %v", got, expected)
+	}
+}
+
+func AssertNotEqual(t *testing.T, got, expected interface{}) {
+	t.Helper()
+
+	if reflect.DeepEqual(got, expected) {
+		t.Errorf("got %v, didnt want %v", got, expected)
 	}
 }
 
@@ -50,6 +57,7 @@ func LoginClient(t *testing.T, srv *ServerFields, auth Credentials) *ClientField
 }
 
 type ServerFields struct {
+	Database *database.InMemoryDatabase
 	Wg     *utils.WaitGroupCounter
 	Hub    *server.ServerHub
 	Server *httptest.Server
@@ -97,7 +105,8 @@ func RecvMsgHistory(t *testing.T, cli *ClientFields) websocket_models.MsgHistory
 
 func StartServer() *ServerFields {
 	wg := utils.NewWaitGroupCounter()
-	hub := server.NewHub(wg, &database.StubDatabase{UsersById: &sync.Map{}, Messages: &sync.Map{}, UsersByUsername: &sync.Map{}})
+	db := database.NewInMemoryDatabase()
+	hub := server.NewHub(wg, db)
 
 	srv := httptest.NewServer(hub.HTTPRequestHandler())
 	u, err := url.ParseRequestURI(srv.URL)
@@ -107,6 +116,7 @@ func StartServer() *ServerFields {
 
 	addr := url.URL{Scheme: "ws", Host: u.Host}
 	return &ServerFields{
+		Database: db,
 		Wg:     wg,
 		Hub:    hub,
 		Server: srv,

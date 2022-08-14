@@ -118,10 +118,11 @@ func TestProtocols(t *testing.T) {
 	})
 
 	t.Run("database error", func(t *testing.T) {
-		_, cli, close := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
+		srv, cli, close := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer close()
-
-		test_utils.MsgSend(t, cli, "error")
+		
+		srv.Database.ShouldErrorOnNext = true
+		test_utils.MsgSend(t, cli, "this should error.")
 
 		var resProto websocket_models.GenericError
 		cli.Conn.ReadJSON(&resProto)
