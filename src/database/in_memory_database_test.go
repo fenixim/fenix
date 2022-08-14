@@ -94,9 +94,20 @@ func TestTimestamps(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	db.InsertMessage(database.NewMessage("bloblet", "yay"))
 
-	history, _ := db.GetMessagesBetween(0, stamp1, 2)
-	got := len(history)
-	expected := 1
+	t.Run("messages before timestamp length", func(t *testing.T) {
+		history, _ := db.GetMessagesBetween(0, stamp1, 2)
+		got := len(history)
+		expected := 1
 
-	test_utils.AssertEqual(t, got, expected)
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("messages after timestamp length", func(t *testing.T) {
+		history, _ := db.GetMessagesBetween(stamp1, time.Now().UnixNano(), 2)
+
+		got := len(history)
+		expected := 1
+
+		test_utils.AssertEqual(t, got, expected)
+	})
 }
