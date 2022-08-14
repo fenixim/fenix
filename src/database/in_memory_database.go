@@ -1,30 +1,33 @@
 package database
 
-func min(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
+import (
+	"sort"
+)
 
 type InMemoryDatabase struct {
-	history []Message
+	history []*Message
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
 	return &InMemoryDatabase{}
 }
 
-func (db *InMemoryDatabase) GetMessagesBetween(_, _, limit int64) []Message {
-	partHistory := []Message{}
-	start := int64(len(db.history))
-	end := start - min(start, limit)
-	for i := start - 1; i > end - 1; i-- {
-		partHistory = append(partHistory, db.history[i])
+func (db *InMemoryDatabase) GetMessagesBetween(a, b, limit int64) []*Message {
+	partHistory := messages{}
+
+	for _, m := range db.history {
+		if m.Timestamp <= b {
+			partHistory.M = append(partHistory.M, m)
+		}
 	}
-	return partHistory
+
+	sort.Sort(partHistory)
+	if int64(len(partHistory.M)) >= limit {
+		return partHistory.M[:limit]
+	}
+	return partHistory.M
 }
 
 func (db *InMemoryDatabase) InsertMessage(m *Message) {
-	db.history = append(db.history, *m)
+	db.history = append(db.history, m)
 }

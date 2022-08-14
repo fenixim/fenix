@@ -16,7 +16,7 @@ func TestBasicOperations(t *testing.T) {
 	t.Run("empty message history", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
 
-		got := len(db.GetMessagesBetween(0, time.Now().Unix(), 50))
+		got := len(db.GetMessagesBetween(0, time.Now().UnixNano(), 50))
 		expected := 0
 		test_utils.AssertEqual(t, got, expected)
 	})
@@ -25,7 +25,7 @@ func TestBasicOperations(t *testing.T) {
 		db := database.NewInMemoryDatabase()
 		db.InsertMessage(database.NewMessage("gopher", "hello"))
 
-		got := len(db.GetMessagesBetween(0, time.Now().Unix(), 0))
+		got := len(db.GetMessagesBetween(0, time.Now().UnixNano(), 0))
 		expected := 0
 
 		test_utils.AssertEqual(t, got, expected)
@@ -40,7 +40,7 @@ func TestBasicOperations(t *testing.T) {
 			}
 
 			got := len(db.GetMessagesBetween(
-				0, time.Now().Unix(), 50))
+				0, time.Now().UnixNano(), 50))
 			expected := i
 			test_utils.AssertEqual(t, got, expected)
 		}
@@ -51,7 +51,7 @@ func TestBasicOperations(t *testing.T) {
 		db.InsertMessage(database.NewMessage("gopher", "yay"))
 		db.InsertMessage(database.NewMessage("kryptic", "fair"))
 
-		history := db.GetMessagesBetween(0, time.Now().Unix(), 1)
+		history := db.GetMessagesBetween(0, time.Now().UnixNano(), 1)
 		got := history[0].Content
 		expected := "fair"
 		test_utils.AssertEqual(t, got, expected)
@@ -69,7 +69,7 @@ func TestMessages(t *testing.T) {
 		db.InsertMessage(
 			database.NewMessage(test.author, test.content))
 
-		history := db.GetMessagesBetween(0, time.Now().Unix(), 1)
+		history := db.GetMessagesBetween(0, time.Now().UnixNano(), 1)
 
 		t.Run("message content", func(testing *testing.T) {
 			got := history[0].Content
@@ -83,4 +83,17 @@ func TestMessages(t *testing.T) {
 			test_utils.AssertEqual(t, got, expected)
 		})
 	}
+}
+
+func TestTimestamps(t *testing.T) {
+	db := database.NewInMemoryDatabase()
+	db.InsertMessage(database.NewMessage("gopher", "hello"))
+	stamp1 := time.Now().UnixNano()
+	time.Sleep(10 * time.Millisecond)
+	db.InsertMessage(database.NewMessage("bloblet", "yay"))
+
+	got := len(db.GetMessagesBetween(0, stamp1, 2))
+	expected := 1
+
+	test_utils.AssertEqual(t, got, expected)
 }

@@ -40,7 +40,7 @@ type messages struct {
 }
 
 func (m messages) Less(i, j int) bool {
-	return m.M[i].Timestamp > m.M[j].Timestamp
+	return m.M[i].Timestamp >= m.M[j].Timestamp
 }
 
 func (m messages) Swap(i, j int) {
