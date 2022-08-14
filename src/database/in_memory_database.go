@@ -12,7 +12,7 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 	return &InMemoryDatabase{}
 }
 
-func (db *InMemoryDatabase) GetMessagesBetween(a, b, limit int64) []*Message {
+func (db *InMemoryDatabase) GetMessagesBetween(a, b, limit int64) ([]*Message, error) {
 	partHistory := messages{}
 
 	for _, m := range db.history {
@@ -23,9 +23,9 @@ func (db *InMemoryDatabase) GetMessagesBetween(a, b, limit int64) []*Message {
 
 	sort.Sort(partHistory)
 	if int64(len(partHistory.M)) >= limit {
-		return partHistory.M[:limit]
+		return partHistory.M[:limit], nil
 	}
-	return partHistory.M
+	return partHistory.M, nil
 }
 
 func (db *InMemoryDatabase) InsertMessage(m *Message) {
