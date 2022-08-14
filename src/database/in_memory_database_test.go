@@ -16,9 +16,10 @@ func TestBasicOperations(t *testing.T) {
 	t.Run("empty message history", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
 
-		got := len(db.GetMessagesBetween(0, time.Now().UnixNano(), 50))
-		expected := 0
-		test_utils.AssertEqual(t, got, expected)
+		got := db.GetMessagesBetween(0, time.Now().UnixNano(), 50)
+		if got != nil {
+			t.Errorf("got %v want nil", got)
+		}
 	})
 
 	t.Run("message history within limit", func(testing *testing.T) {
