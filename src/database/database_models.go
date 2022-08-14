@@ -2,6 +2,7 @@ package database
 
 import (
 	"crypto/sha512"
+	"time"
 
 	"github.com/xdg-go/pbkdf2"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -26,7 +27,7 @@ func (u *User) HashPassword() {
 }
 
 func NewMessage(username, content string) *Message {
-	m := Message{Author: username, Content: content}
+	m := Message{Author: username, Content: content, Timestamp: time.Now().UnixNano()}
 
 	return &m
 }

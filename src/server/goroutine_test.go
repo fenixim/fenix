@@ -1,23 +1,24 @@
 package server_test
 
 import (
+	"fenix/src/test_utils"
 	"testing"
 	"time"
 )
 
 func TestEnsureGoroutinesStop(t *testing.T) {
 	t.Run("when client exits", func(t *testing.T) {
-		srv := StartServer_()
-		defer srv.close()
-		srv.addr.Path = "/register"
+		srv := test_utils.StartServer()
+		defer srv.Close()
+		srv.Addr.Path = "/register"
 
-		cli := Connect_("gopher123", "totallymypassword", srv.addr)
-		cli.close()
+		cli := test_utils.Connect("gopher123", "totallymypassword", srv.Addr)
+		cli.Close()
 		time.Sleep(10 * time.Millisecond)
 
-		got := srv.wg.Counter
+		got := srv.Wg.Counter
 		if got != 2 {
-			srv.wg.Names.Range(func(key, value interface{}) bool {
+			srv.Wg.Names.Range(func(key, value interface{}) bool {
 				t.Log(key)
 				return true
 			})
@@ -26,15 +27,15 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 	})
 	t.Run("when server exits after client connected", func(t *testing.T) {
 
-		srv := StartServer_()
-		srv.addr.Path = "/register"
-		cli := Connect_("gopher123", "totallymypassword", srv.addr)
-		cli.close()
-		srv.close()
+		srv := test_utils.StartServer()
+		srv.Addr.Path = "/register"
+		cli := test_utils.Connect("gopher123", "totallymypassword", srv.Addr)
+		cli.Close()
+		srv.Close()
 		time.Sleep(5 * time.Second)
 
-		srv.wg.Wait()
-		got := srv.wg.Counter
+		srv.Wg.Wait()
+		got := srv.Wg.Counter
 		expected := 0
 		if got != expected {
 			t.Fail()
@@ -42,11 +43,11 @@ func TestEnsureGoroutinesStop(t *testing.T) {
 	})
 	t.Run("when server exits", func(t *testing.T) {
 
-		srv := StartServer_()
-		srv.close()
+		srv := test_utils.StartServer()
+		srv.Close()
 
-		srv.wg.Wait()
-		got := srv.wg.Counter
+		srv.Wg.Wait()
+		got := srv.Wg.Counter
 		expected := 0
 		if got != expected {
 			t.Fail()

@@ -18,7 +18,7 @@ func (m *MessageHandler) init() {
 }
 
 func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
-	var msg websocket_models.SendMessage
+	var msg websocket_models.MsgSend
 	err := json.Unmarshal(b, &msg)
 	if err != nil {
 		log.Printf("error in decoding message json: %v", err)
@@ -33,8 +33,8 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 		return
 	}
 
-	msg_broadcast := websocket_models.BroadcastMessage{
-		Time: time.Now().Unix(),
+	msg_broadcast := websocket_models.MsgBroadcast{
+		Time: time.Now().UnixNano(),
 		Author: websocket_models.Author{
 			ID:       client.User.UserID.Hex(),
 			Username: client.User.Username,
@@ -59,7 +59,7 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 }
 
 func (m *MessageHandler) HandleMessageHistory(b []byte, client *Client) {
-	hist := &websocket_models.MessageHistory{}
+	hist := &websocket_models.MsgHistory{}
 	json.Unmarshal(b, hist)
 
 	msgs, err := m.hub.Database.GetMessagesBetween(hist.From, hist.To, 50)

@@ -13,7 +13,7 @@ import (
 
 type Database interface {
 	InsertMessage(*Message) error
-	GetMessagesBetween(int64, int64, int64) ([]Message, error)
+	GetMessagesBetween(int64, int64, int64) ([]*Message, error)
 
 	InsertUser(*User) error
 	GetUser(*User) error
@@ -45,7 +45,7 @@ func (db *MongoDatabase) InsertMessage(m *Message) error {
 	return err
 }
 
-func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]Message, error) {
+func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]*Message, error) {
 	coll := db.getDatabase().Collection("messages")
 
 	q := bson.D{{
@@ -64,7 +64,7 @@ func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]Me
 	if err != nil {
 		return nil, err
 	}
-	var res []Message
+	var res []*Message
 
 	err = cur.All(context.Background(), &res)
 	return res, err

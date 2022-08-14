@@ -36,11 +36,11 @@ func (d DoesNotExist) Error() string {
 }
 
 type messages struct {
-	M []Message
+	M []*Message
 }
 
 func (m messages) Less(i, j int) bool {
-	return m.M[i].Timestamp < m.M[j].Timestamp
+	return m.M[i].Timestamp > m.M[j].Timestamp
 }
 
 func (m messages) Swap(i, j int) {
@@ -71,13 +71,13 @@ func (s *StubDatabase) InsertMessage(m *Message) error {
 	return nil
 }
 
-func (s *StubDatabase) GetMessagesBetween(a, b, limit int64) ([]Message, error) {
-	msgs := make([]Message, 0)
+func (s *StubDatabase) GetMessagesBetween(a, b, limit int64) ([]*Message, error) {
+	msgs := make([]*Message, 0)
 
 	s.Messages.Range(func(key, value interface{}) bool {
 		message := value.(*Message)
 		if message.Timestamp >= a || message.Timestamp <= b {
-			msgs = append(msgs, *message)
+			msgs = append(msgs, message)
 		}
 
 		return true
