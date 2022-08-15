@@ -6,6 +6,11 @@ type JSONModel interface {
 	SetType() JSONModel
 }
 
+type User struct {
+	UserID   string
+	Username string
+}
+
 // Used to obtain your own client ID
 type WhoAmI struct {
 	T        string `json:"type"`
