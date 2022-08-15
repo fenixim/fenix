@@ -17,6 +17,10 @@ type Database interface {
 
 	InsertUser(*User) error
 	GetUser(*User) error
+
+	InsertChannel(*Channel) error
+	DeleteChannel(*Channel) error
+	GetChannel(*Channel) error
 }
 
 type MongoDatabase struct {
@@ -113,6 +117,46 @@ func (db *MongoDatabase) DeleteUser(u *User) error {
 	q := bson.D{{
 		"_id", bson.D{{
 			"$eq", u.UserID.Hex(),
+		}},
+	}}
+	ctx, cancel := db.makeContext()
+	defer cancel()
+
+	_, err := coll.DeleteOne(ctx, q)
+
+	return err
+}
+
+func (db *MongoDatabase) InsertChannel(c *Channel) error {
+	coll := db.getDatabase().Collection("channels")
+	ctx, cancel := db.makeContext()
+	defer cancel()
+
+	res, err := coll.InsertOne(ctx, c)
+	c.ChannelID = res.InsertedID.(primitive.ObjectID)
+	return err
+}
+
+func (db *MongoDatabase) GetChannel(c *Channel) error {
+	coll := db.getDatabase().Collection("channels")
+	q := bson.D{{
+		"_id", bson.D{{
+			"$eq", c.ChannelID.Hex(),
+		}},
+	}}
+	ctx, cancel := db.makeContext()
+	defer cancel()
+
+	res := coll.FindOne(ctx, q)
+	err := res.Decode(c)
+	return err
+}
+
+func (db *MongoDatabase) DeleteChannel(c *Channel) error {
+	coll := db.getDatabase().Collection("channels")
+	q := bson.D{{
+		"_id", bson.D{{
+			"$eq", c.ChannelID.Hex(),
 		}},
 	}}
 	ctx, cancel := db.makeContext()

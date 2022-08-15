@@ -31,3 +31,9 @@ func NewMessage(username, content string) *Message {
 
 	return &m
 }
+
+type Channel struct {
+	ChannelID primitive.ObjectID `bson:"_id,omitempty"`
+	Name string
+	Owner primitive.ObjectID
+}

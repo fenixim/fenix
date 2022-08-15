@@ -221,3 +221,64 @@ func TestUsers(t *testing.T) {
 		test_utils.AssertEqual(t, err, database.DoesNotExist{})
 	})
 }
+
+func TestChannels(t *testing.T) {
+	t.Run("InsertChannel", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+
+		channel := &database.Channel{}
+
+		db.InsertChannel(channel)
+		got := channel.ChannelID
+		dontWant := primitive.NilObjectID
+
+		test_utils.AssertNotEqual(t, got, dontWant)
+	})
+
+	t.Run("DeleteChannel", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+		channel := &database.Channel{}
+		db.InsertChannel(channel)
+		
+		db.DeleteChannel(channel)
+
+		got := len(db.Channels)
+		expected := 0
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("GetChannel", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+		expected := &database.Channel{
+			Name: "gopherland",
+			Owner: primitive.NewObjectID(),
+		}
+
+		db.InsertChannel(expected)
+
+		got := &database.Channel{
+			ChannelID: expected.ChannelID,
+		}
+		err := db.GetChannel(got)
+
+		test_utils.AssertEqual(t, err, nil)
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("GetChannel returns error on nonexistent channel", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+
+		got := db.GetChannel(&database.Channel{ChannelID: primitive.NewObjectID()})
+		
+		expected := database.DoesNotExist{}
+		test_utils.AssertEqual(t, got, expected)
+	})
+	t.Run("DeleteChannel returns error on nonexistent channel", func(t *testing.T) {
+		db := database.NewInMemoryDatabase()
+
+		got := db.DeleteChannel(&database.Channel{ChannelID: primitive.NewObjectID()})
+		
+		expected := database.DoesNotExist{}
+		test_utils.AssertEqual(t, got, expected)
+	})
+}

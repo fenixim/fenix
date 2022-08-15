@@ -43,18 +43,23 @@ func (f FakeDatabaseError) Error() string {
 
 type InMemoryDatabase struct {
 	ShouldErrorOnNext bool
-	messages          []*Message
+	Messages          []*Message
 	messagesLock      *sync.Mutex
 
-	users     map[string]*User
+	Users     map[string]*User
 	usersLock *sync.Mutex
+
+	Channels map[string]*Channel
+	channelsLock *sync.Mutex
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
 	return &InMemoryDatabase{
-		users:        make(map[string]*User),
+		Users:        make(map[string]*User),
 		usersLock:    &sync.Mutex{},
 		messagesLock: &sync.Mutex{},
+		Channels: make(map[string]*Channel),
+		channelsLock: &sync.Mutex{},
 	}
 }
 
@@ -68,7 +73,7 @@ func (db *InMemoryDatabase) GetMessagesBetween(a, b, limit int64) ([]*Message, e
 
 	partHistory := messages{}
 
-	for _, m := range db.messages {
+	for _, m := range db.Messages {
 		if m.Timestamp >= a && m.Timestamp <= b {
 			partHistory.M = append(partHistory.M, m)
 		}
@@ -89,8 +94,8 @@ func (db *InMemoryDatabase) InsertMessage(m *Message) error {
 		return FakeDatabaseError{}
 	}
 
-	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(int64(len(db.messages)+1), 0))
-	db.messages = append(db.messages, m)
+	m.MessageID = primitive.NewObjectIDFromTimestamp(time.Unix(int64(len(db.Messages)+1), 0))
+	db.Messages = append(db.Messages, m)
 	return nil
 }
 
@@ -102,8 +107,8 @@ func (db *InMemoryDatabase) InsertUser(u *User) error {
 		return FakeDatabaseError{}
 	}
 
-	u.UserID = primitive.NewObjectIDFromTimestamp(time.Unix(int64(len(db.users)+1), 0))
-	db.users[u.UserID.Hex()] = u
+	u.UserID = primitive.NewObjectIDFromTimestamp(time.Unix(int64(len(db.Users)+1), 0))
+	db.Users[u.UserID.Hex()] = u
 	return nil
 }
 
@@ -116,13 +121,13 @@ func (db *InMemoryDatabase) GetUser(req *User) error {
 	}
 
 	if req.UserID != primitive.NilObjectID {
-		if user, ok := db.users[req.UserID.Hex()]; ok {
+		if user, ok := db.Users[req.UserID.Hex()]; ok {
 			*req = *user
 		} else {
 			return DoesNotExist{}
 		}
 	} else if req.Username != "" {
-		for _, u := range db.users {
+		for _, u := range db.Users {
 			if u.Username == req.Username {
 				*req = *u
 				return nil
@@ -133,5 +138,35 @@ func (db *InMemoryDatabase) GetUser(req *User) error {
 		log.Panic("GetUser needs fields in User!")
 	}
 
+	return nil
+}
+
+func (db *InMemoryDatabase) InsertChannel(channel *Channel) error {
+	db.channelsLock.Lock()
+	defer db.channelsLock.Unlock()
+	channel.ChannelID = primitive.NewObjectID()
+	db.Channels[channel.ChannelID.Hex()] = channel
+
+	return nil
+}
+
+func (db *InMemoryDatabase) DeleteChannel(channel *Channel) error {
+	db.channelsLock.Lock()
+	defer db.channelsLock.Unlock()
+	if _, ok := db.Channels[channel.ChannelID.Hex()]; !ok {
+		return DoesNotExist{}
+	}
+	delete(db.Channels, channel.ChannelID.Hex())
+
+	return nil
+}
+func (db *InMemoryDatabase) GetChannel(channel *Channel) error {
+	db.channelsLock.Lock()
+	defer db.channelsLock.Unlock()
+	if c, ok := db.Channels[channel.ChannelID.Hex()]; ok {
+		*channel = *c
+	} else {
+		return DoesNotExist{}
+	}
 	return nil
 }
