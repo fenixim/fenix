@@ -97,3 +97,23 @@ func NewIdentificationHandler(hub *ServerHub) {
 	i := IdentificationHandler{hub: hub}
 	i.init()
 }
+
+type YodelHandler struct {
+	hub *ServerHub
+}
+
+func (y *YodelHandler) init() {
+	y.hub.RegisterHandler(websocket_models.YodelCreate{}.Type(),
+		y.HandleYodelCreate)
+}
+
+func (y *YodelHandler) HandleYodelCreate(_ []byte, c *Client) {
+	c.OutgoingPayloadQueue <- websocket_models.Yodel{
+		YodelID: "yodelyay",
+	}
+}
+
+func NewYodelHandler(hub *ServerHub) {
+	y := YodelHandler{hub: hub}
+	y.init()
+}

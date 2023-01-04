@@ -131,4 +131,22 @@ func TestProtocols(t *testing.T) {
 		expected := "DatabaseError"
 		test_utils.AssertEqual(t, got, expected)
 	})
+
+	t.Run("server creation sends back id", func(t *testing.T) {
+		_, cli, close := test_utils.StartServerAndConnect("gopher123",
+			"mytotallyrealpassword", "/register")
+		defer close()
+
+		test_utils.YodelCreate(t, cli)
+
+		var yodel websocket_models.Yodel
+		err := cli.Conn.ReadJSON(&yodel)
+		if err != nil {
+			t.Fatalf("%v\n", err)
+		}
+
+		got := yodel.YodelID
+		notExpected := ""
+		test_utils.AssertNotEqual(t, got, notExpected)
+	})
 }

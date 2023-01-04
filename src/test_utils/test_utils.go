@@ -29,7 +29,7 @@ func AssertNotEqual(t *testing.T, got, expected interface{}) {
 	t.Helper()
 
 	if reflect.DeepEqual(got, expected) {
-		t.Errorf("got %v, didnt want %v", got, expected)
+		t.Errorf("got %q, didnt want %q", got, expected)
 	}
 }
 
@@ -101,6 +101,14 @@ func RecvMsgHistory(t *testing.T, cli *ClientFields) websocket_models.MsgHistory
 	}
 
 	return resProto
+}
+
+func YodelCreate(t *testing.T, cli *ClientFields) {
+	t.Helper()
+	err := cli.Conn.WriteJSON(websocket_models.YodelCreate{}.SetType())
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 }
 
 func StartServer() *ServerFields {
