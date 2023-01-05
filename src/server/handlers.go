@@ -52,6 +52,7 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 
 	if err != nil {
 		client.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "DatabaseError"}
+		return
 	}
 
 	msg_broadcast.MessageID = db_msg.MessageID.Hex()
@@ -107,9 +108,36 @@ func (y *YodelHandler) init() {
 		y.HandleYodelCreate)
 }
 
-func (y *YodelHandler) HandleYodelCreate(_ []byte, c *Client) {
+func (y *YodelHandler) HandleYodelCreate(b []byte, c *Client) {
+	var yodel websocket_models.YodelCreate
+	err := json.Unmarshal(b, &yodel)
+	if err != nil {
+		log.Printf("error in decoding yodelcreate json: %v", err)
+		return
+	}
+
+	if yodel.Name == "" {
+		c.OutgoingPayloadQueue <- websocket_models.GenericError{
+			Error:   "yodel_name_empty",
+			Message: "Cannot create a server with no name!",
+		}
+		return
+	}
+
+	db_yodel := &database.Yodel{
+		Name: yodel.Name,
+	}
+	
+	err = y.hub.Database.InsertYodel(db_yodel)
+    
+	if err != nil {
+		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "DatabaseError"}
+		return
+	}
+
 	c.OutgoingPayloadQueue <- websocket_models.Yodel{
-		YodelID: "yodelyay",
+		YodelID: db_yodel.YodelID.Hex(),
+		Name: yodel.Name,
 	}
 }
 

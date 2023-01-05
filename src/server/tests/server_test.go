@@ -6,6 +6,8 @@ import (
 	"fenix/src/websocket_models"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func TestProtocols(t *testing.T) {
@@ -121,7 +123,7 @@ func TestProtocols(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer close()
 
-		srv.Database.ShouldErrorOnNext = true
+		srv.Database.(*database.InMemoryDatabase).ShouldErrorOnNext = true
 		test_utils.MsgSend(t, cli, "this should error.")
 
 		var resProto websocket_models.GenericError
@@ -137,7 +139,7 @@ func TestProtocols(t *testing.T) {
 			"mytotallyrealpassword", "/register")
 		defer close()
 
-		test_utils.YodelCreate(t, cli)
+		test_utils.YodelCreate(t, cli, "Fenixland")
 
 		var yodel websocket_models.Yodel
 		err := cli.Conn.ReadJSON(&yodel)
@@ -148,5 +150,48 @@ func TestProtocols(t *testing.T) {
 		got := yodel.YodelID
 		notExpected := ""
 		test_utils.AssertNotEqual(t, got, notExpected)
+	})
+
+	t.Run("server creation sends back name", func(t *testing.T) {
+		_, cli, close := test_utils.StartServerAndConnect("gopher123",
+			"mytotallyrealpassword", "/register")
+		defer close()
+
+		test_utils.YodelCreate(t, cli, "Fenixland")
+
+		var yodel websocket_models.Yodel
+		err := cli.Conn.ReadJSON(&yodel)
+		if err != nil {
+			t.Fatalf("%v\n", err)
+		}
+
+		got := yodel.Name
+		expected := "Fenixland"
+		test_utils.AssertEqual(t, got, expected)
+	})
+	t.Run("server creation results in new db entry", func(t *testing.T) {
+		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
+			"mytotallyrealpassword", "/register")
+		defer close()
+
+		test_utils.YodelCreate(t, cli, "Fenixland")
+
+		var yodel websocket_models.Yodel
+		err := cli.Conn.ReadJSON(&yodel)
+		if err != nil {
+			t.Fatalf("%v\n", err)
+		}
+		yodel_ID, err := primitive.ObjectIDFromHex(yodel.YodelID)
+		if err != nil {
+			t.Fatalf("%v\n", err)
+		}
+		got := &database.Yodel{YodelID: yodel_ID}
+		srv.Database.GetYodel(got)
+
+		expected := &database.Yodel{
+			YodelID: yodel_ID,
+			Name: "Fenixland",
+		}
+		test_utils.AssertEqual(t, got, expected)
 	})
 }

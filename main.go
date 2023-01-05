@@ -9,13 +9,13 @@ import (
 )
 
 func main() {
-	wg := utils.WaitGroupCounter{}
+	wg := utils.NewWaitGroupCounter()
 	env, err := godotenv.Read(".env")
 	if err != nil {
 		panic(err)
 	}
 
-	hub := server.NewHub(&wg, database.NewMongoDatabase(env["mongo_addr"], env["db_name"]))
+	hub := server.NewHub(wg, database.NewMongoDatabase(env["mongo_addr"], env["db_name"]))
 	hub.Serve("0.0.0.0:8080")
 
 	wg.Wait()

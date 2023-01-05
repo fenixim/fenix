@@ -15,11 +15,13 @@ type WaitGroupCounter struct {
 // delta cannot be negative
 // name must be unique
 func (w *WaitGroupCounter) Add(delta int, name string) error {
-	w.Counter += delta
-
-	if _, ok := w.Names.Load(name); ok {
-		return nil
+	if w.Names == nil {
+		panic("wg: Names field uninitialized")
 	}
+	if _, ok := w.Names.Load(name); ok {
+		return nil // not correct logic so could be related
+	}
+	w.Counter += delta
 
 	w.Names.Store(name, true)
 	w.WaitGroup.Add(delta)

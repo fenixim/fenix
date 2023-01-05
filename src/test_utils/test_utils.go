@@ -57,7 +57,7 @@ func LoginClient(t *testing.T, srv *ServerFields, auth Credentials) *ClientField
 }
 
 type ServerFields struct {
-	Database *database.InMemoryDatabase
+	Database database.Database
 	Wg       *utils.WaitGroupCounter
 	Hub      *server.ServerHub
 	Server   *httptest.Server
@@ -103,17 +103,32 @@ func RecvMsgHistory(t *testing.T, cli *ClientFields) websocket_models.MsgHistory
 	return resProto
 }
 
-func YodelCreate(t *testing.T, cli *ClientFields) {
+func YodelCreate(t *testing.T, cli *ClientFields, name string) {
 	t.Helper()
-	err := cli.Conn.WriteJSON(websocket_models.YodelCreate{}.SetType())
+	err := cli.Conn.WriteJSON(websocket_models.YodelCreate{Name: name}.SetType())
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 }
 
-func StartServer() *ServerFields {
+func StartServer(mongoEnv ...map[string]string) *ServerFields {
 	wg := utils.NewWaitGroupCounter()
-	db := database.NewInMemoryDatabase()
+	var db database.Database
+
+	if len(mongoEnv) != 0 {
+		addr, addrok := mongoEnv[0]["mongo_addr"]
+		intTest, intTestOk := mongoEnv[0]["integration_testing"]
+		if addrok && intTestOk {
+			db = database.NewMongoDatabase(addr, intTest)
+		}
+		err := db.ClearDB()
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		db = database.NewInMemoryDatabase()
+	}
+
 	hub := server.NewHub(wg, db)
 
 	srv := httptest.NewServer(hub.HTTPRequestHandler())
@@ -154,8 +169,8 @@ func Connect(username, password string, u url.URL) *ClientFields {
 	}
 }
 
-func StartServerAndConnect(username, password, endpoint string) (*ServerFields, *ClientFields, func()) {
-	srv := StartServer()
+func StartServerAndConnect(username, password, endpoint string, mongoEnv ...map[string]string) (*ServerFields, *ClientFields, func()) {
+	srv := StartServer(mongoEnv...)
 	srv.Addr.Path = endpoint
 	cli := Connect(username, password, srv.Addr)
 	return srv, cli, func() {
