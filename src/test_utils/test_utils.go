@@ -6,7 +6,6 @@ import (
 	"fenix/src/database"
 	"fenix/src/server"
 	"fenix/src/utils"
-	"fenix/src/websocket_models"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -33,29 +32,6 @@ func AssertNotEqual(t *testing.T, got, expected interface{}) {
 	}
 }
 
-type Credentials struct {
-	Username string
-	Password string
-}
-
-func RegisterClient(t *testing.T, srv *ServerFields, auth Credentials) *ClientFields {
-	t.Helper()
-
-	srv.Addr.Path = "/register"
-	cli := Connect(auth.Username, auth.Password, srv.Addr)
-
-	return cli
-}
-
-func LoginClient(t *testing.T, srv *ServerFields, auth Credentials) *ClientFields {
-	t.Helper()
-
-	srv.Addr.Path = "/login"
-	cli := Connect(auth.Username, auth.Password, srv.Addr)
-
-	return cli
-}
-
 type ServerFields struct {
 	Database database.Database
 	Wg       *utils.WaitGroupCounter
@@ -69,54 +45,6 @@ type ClientFields struct {
 	Conn  *websocket.Conn
 	Res   *http.Response
 	Close func()
-}
-
-func MsgHistory(t *testing.T, cli *ClientFields, from, to int64) {
-	t.Helper()
-
-	err := cli.Conn.WriteJSON(
-		websocket_models.MsgHistory{From: from, To: to}.SetType())
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func MsgSend(t *testing.T, cli *ClientFields, content string) {
-	t.Helper()
-
-	err := cli.Conn.WriteJSON(
-		websocket_models.MsgSend{Message: content}.SetType())
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func RecvMsgHistory(t *testing.T, cli *ClientFields) websocket_models.MsgHistory {
-	t.Helper()
-
-	var resProto websocket_models.MsgHistory
-	err := cli.Conn.ReadJSON(&resProto)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return resProto
-}
-
-func YodelCreate(t *testing.T, cli *ClientFields, name string) {
-	t.Helper()
-	err := cli.Conn.WriteJSON(websocket_models.YodelCreate{Name: name}.SetType())
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-}
-
-func YodelGet(t *testing.T, cli *ClientFields, yodelID string) {
-	t.Helper()
-	err := cli.Conn.WriteJSON(websocket_models.YodelGet{YodelID: yodelID}.SetType())
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
 }
 
 func StartServer(mongoEnv ...map[string]string) *ServerFields {

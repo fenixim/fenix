@@ -1,7 +1,7 @@
 package websocket_models
 
 type YodelCreate struct {
-	T string `json:"type"`
+	T    string `json:"type"`
 	Name string `json:"name"`
 }
 
@@ -17,7 +17,7 @@ func (b YodelCreate) SetType() JSONModel {
 type Yodel struct {
 	T       string `json:"type"`
 	YodelID string `json:"y_id"`
-	Name string `json:"name"`
+	Name    string `json:"name"`
 }
 
 func (b Yodel) Type() string {
@@ -30,7 +30,7 @@ func (b Yodel) SetType() JSONModel {
 }
 
 type YodelGet struct {
-	T string `json:"type"`
+	T       string `json:"type"`
 	YodelID string `json:"y_id"`
 }
 

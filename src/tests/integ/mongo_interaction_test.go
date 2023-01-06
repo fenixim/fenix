@@ -3,6 +3,7 @@ package mongo_interaction_test
 import (
 	"fenix/src/database"
 	"fenix/src/test_utils"
+	mockclient "fenix/src/test_utils/mock_client"
 	"fenix/src/websocket_models"
 	"testing"
 
@@ -14,7 +15,7 @@ func TestYodelIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	
+
 	t.Run("yodel creation results in new db entry", func(t *testing.T) {
 		env, err := godotenv.Read("../../../.env")
 		if err != nil {
@@ -24,11 +25,8 @@ func TestYodelIntegration(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register", env)
 		defer close()
-		defer func() {
-			
-		}()
-
-		test_utils.YodelCreate(t, cli, "Fenixland")
+		mock := mockclient.MockClient{}
+		mock.YodelCreate(t, cli, "Fenixland")
 
 		var yodel websocket_models.Yodel
 		err = cli.Conn.ReadJSON(&yodel)
@@ -49,7 +47,7 @@ func TestYodelIntegration(t *testing.T) {
 
 		expected := &database.Yodel{
 			YodelID: yodel_ID,
-			Name: "Fenixland",
+			Name:    "Fenixland",
 		}
 		test_utils.AssertEqual(t, got, expected)
 	})

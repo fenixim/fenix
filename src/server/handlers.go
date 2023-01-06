@@ -83,7 +83,6 @@ func NewMessageHandler(hub *ServerHub) *MessageHandler {
 	return &m
 }
 
-
 type IdentificationHandler struct {
 	hub *ServerHub
 }
@@ -103,7 +102,6 @@ func NewIdentificationHandler(hub *ServerHub) {
 	i := IdentificationHandler{hub: hub}
 	i.init()
 }
-
 
 type YodelHandler struct {
 	hub *ServerHub
@@ -134,9 +132,9 @@ func (y *YodelHandler) HandleYodelCreate(b []byte, c *Client) {
 	db_yodel := &database.Yodel{
 		Name: yodel.Name,
 	}
-	
+
 	err = y.hub.Database.InsertYodel(db_yodel)
-    
+
 	if err != nil {
 		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "DatabaseError"}
 		return
@@ -144,7 +142,7 @@ func (y *YodelHandler) HandleYodelCreate(b []byte, c *Client) {
 
 	c.OutgoingPayloadQueue <- websocket_models.Yodel{
 		YodelID: db_yodel.YodelID.Hex(),
-		Name: yodel.Name,
+		Name:    yodel.Name,
 	}
 }
 
@@ -164,7 +162,7 @@ func (y *YodelHandler) HandleYodelGet(b []byte, c *Client) {
 	if err != nil {
 		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "IDFormattingError", Message: "ID field is formatted incorrectly!"}
 		return
-	} 
+	}
 
 	yodel := database.Yodel{YodelID: yodelID}
 	err = y.hub.Database.GetYodel(&yodel)
@@ -174,7 +172,7 @@ func (y *YodelHandler) HandleYodelGet(b []byte, c *Client) {
 
 	c.OutgoingPayloadQueue <- websocket_models.Yodel{
 		YodelID: yodel.YodelID.Hex(),
-		Name: yodel.Name,
+		Name:    yodel.Name,
 	}
 }
 
