@@ -28,3 +28,17 @@ func (b Yodel) SetType() JSONModel {
 	b.T = b.Type()
 	return b
 }
+
+type YodelGet struct {
+	T string `json:"type"`
+	YodelID string `json:"y_id"`
+}
+
+func (b YodelGet) Type() string {
+	b.T = "yodel_get"
+	return b.T
+}
+func (b YodelGet) SetType() JSONModel {
+	b.T = b.Type()
+	return b
+}

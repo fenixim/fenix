@@ -111,6 +111,14 @@ func YodelCreate(t *testing.T, cli *ClientFields, name string) {
 	}
 }
 
+func YodelGet(t *testing.T, cli *ClientFields, yodelID string) {
+	t.Helper()
+	err := cli.Conn.WriteJSON(websocket_models.YodelGet{YodelID: yodelID}.SetType())
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+}
+
 func StartServer(mongoEnv ...map[string]string) *ServerFields {
 	wg := utils.NewWaitGroupCounter()
 	var db database.Database

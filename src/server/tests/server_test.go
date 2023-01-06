@@ -134,7 +134,7 @@ func TestProtocols(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("server creation sends back id", func(t *testing.T) {
+	t.Run("yodel creation sends back id", func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
@@ -152,7 +152,7 @@ func TestProtocols(t *testing.T) {
 		test_utils.AssertNotEqual(t, got, notExpected)
 	})
 
-	t.Run("server creation sends back name", func(t *testing.T) {
+	t.Run("yodel creation sends back name", func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
@@ -169,29 +169,92 @@ func TestProtocols(t *testing.T) {
 		expected := "Fenixland"
 		test_utils.AssertEqual(t, got, expected)
 	})
-	t.Run("server creation results in new db entry", func(t *testing.T) {
+
+	t.Run("users can request yodel info", func(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
 
-		test_utils.YodelCreate(t, cli, "Fenixland")
+		yodel := &database.Yodel{Name: "Yodelyay"}
+		srv.Database.InsertYodel(yodel)
 
-		var yodel websocket_models.Yodel
-		err := cli.Conn.ReadJSON(&yodel)
+		test_utils.YodelGet(t, cli, yodel.YodelID.Hex())
+		
+		var res websocket_models.Yodel
+		err := cli.Conn.ReadJSON(&res)
 		if err != nil {
 			t.Fatalf("%v\n", err)
 		}
-		yodel_ID, err := primitive.ObjectIDFromHex(yodel.YodelID)
+
+		resYodelID, err := primitive.ObjectIDFromHex(res.YodelID)
 		if err != nil {
 			t.Fatalf("%v\n", err)
 		}
-		got := &database.Yodel{YodelID: yodel_ID}
-		srv.Database.GetYodel(got)
 
-		expected := &database.Yodel{
-			YodelID: yodel_ID,
-			Name: "Fenixland",
+		got := &database.Yodel{YodelID: resYodelID, Name: res.Name}
+		expected := yodel
+
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("users requesting yodel info with invalid hex errors", func(t *testing.T) {
+		_, cli, close := test_utils.StartServerAndConnect("gopher123",
+			"mytotallyrealpassword", "/register")
+		defer close()
+
+		test_utils.YodelGet(t, cli, "z0")
+		
+		var res websocket_models.GenericError
+		err := cli.Conn.ReadJSON(&res)
+		if err != nil {
+			t.Fatalf("%v\n", err)
 		}
+
+		got := res.T
+		expected := websocket_models.GenericError{}.Type()
+
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("users requesting yodel that doesnt exist errors", func(t *testing.T) {
+		_, cli, close := test_utils.StartServerAndConnect("gopher123",
+			"mytotallyrealpassword", "/register")
+		defer close()
+
+		test_utils.YodelGet(t, cli, primitive.NewObjectIDFromTimestamp(time.Now()).Hex())
+		
+		var res websocket_models.GenericError
+		err := cli.Conn.ReadJSON(&res)
+		if err != nil {
+			t.Fatalf("%v\n", err)
+		}
+
+		got := res.T
+		expected := websocket_models.GenericError{}.Type()
+
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("users requesting yodel with no ID errors", func(t *testing.T) {
+		_, cli, close := test_utils.StartServerAndConnect("gopher123",
+			"mytotallyrealpassword", "/register")
+		defer close()
+
+		err := cli.Conn.WriteJSON(websocket_models.YodelGet{}.SetType())
+		if err != nil {
+			t.Fatalf("%v\n", err)
+			
+		}
+
+		var res websocket_models.GenericError
+		err = cli.Conn.ReadJSON(&res)
+		if err != nil {
+			t.Fatalf("%v\n", err)
+		}
+
+		got := res.T
+		expected := websocket_models.GenericError{}.Type()
+
 		test_utils.AssertEqual(t, got, expected)
 	})
 }
