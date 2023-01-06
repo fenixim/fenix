@@ -11,6 +11,10 @@ import (
 )
 
 func TestYodelIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+	
 	t.Run("yodel creation results in new db entry", func(t *testing.T) {
 		env, err := godotenv.Read("../../../.env")
 		if err != nil {
