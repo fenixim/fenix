@@ -11,7 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func TestProtocols(t *testing.T) {
+
+func TestWhoAmIHandlers(t *testing.T) {
 	t.Run("whoami", func(t *testing.T) {
 		_, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
@@ -25,8 +26,10 @@ func TestProtocols(t *testing.T) {
 		got := resProto.Username
 		test_utils.AssertEqual(t, got, expected)
 	})
+}
 
-	t.Run("broadcast message", func(t *testing.T) {
+func TestMessageHandlers(t *testing.T) {
+	t.Run("msg_broadcast has correct content", func(t *testing.T) {
 		_, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 
@@ -41,7 +44,7 @@ func TestProtocols(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("broadcast username", func(t *testing.T) {
+	t.Run("msg_broadcast has correct username", func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer close()
 
@@ -56,8 +59,7 @@ func TestProtocols(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("send empty message", func(t *testing.T) {
-
+	t.Run("msg_broadcast doesnt allow empty messages", func(t *testing.T) {
 		_, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 
@@ -75,24 +77,11 @@ func TestProtocols(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	populate := func(srv *test_utils.ServerFields, count int) {
-		user := database.User{Username: "gopher123"}
-		srv.Hub.Database.GetUser(&user)
-
-		for i := 0; i < count; i++ {
-			srv.Hub.Database.InsertMessage(&database.Message{
-				Content:   "Hello there!",
-				Timestamp: time.Now().UnixNano(),
-				Author:    user.UserID.Hex(),
-			})
-		}
-	}
-
-	t.Run("message history length", func(t *testing.T) {
+	t.Run("msg_history has correct length", func(t *testing.T) {
 		srv, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 
-		populate(srv, 1)
+		test_utils.Populate(srv, 1)
 		mock := mockclient.MockClient{}
 		mock.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
@@ -117,7 +106,7 @@ func TestProtocols(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
 		defer close()
 
-		populate(srv, 51)
+		test_utils.Populate(srv, 51)
 		mock := mockclient.MockClient{}
 		mock.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
@@ -125,7 +114,9 @@ func TestProtocols(t *testing.T) {
 		expected := 50
 		test_utils.AssertEqual(t, got, expected)
 	})
+}
 
+func TestErrorHandling(t *testing.T) {
 	t.Run("database error", func(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer close()
@@ -141,7 +132,9 @@ func TestProtocols(t *testing.T) {
 		expected := "DatabaseError"
 		test_utils.AssertEqual(t, got, expected)
 	})
+}
 
+func TestYodelHandlers(t *testing.T) {
 	t.Run("yodel creation sends back id", func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")

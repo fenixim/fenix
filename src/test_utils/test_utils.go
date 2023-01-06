@@ -114,3 +114,16 @@ func StartServerAndConnect(username, password, endpoint string, mongoEnv ...map[
 		srv.Close()
 	}
 }
+
+func Populate(srv *ServerFields, count int) {
+	user := database.User{Username: "gopher123"}
+	srv.Hub.Database.GetUser(&user)
+
+	for i := 0; i < count; i++ {
+		srv.Hub.Database.InsertMessage(&database.Message{
+			Content:   "Hello there!",
+			Timestamp: time.Now().UnixNano(),
+			Author:    user.UserID.Hex(),
+		})
+	}
+}
