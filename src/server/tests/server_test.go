@@ -11,7 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-
 func TestWhoAmIHandlers(t *testing.T) {
 	t.Run("whoami", func(t *testing.T) {
 		_, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
