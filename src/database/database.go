@@ -30,7 +30,12 @@ type MongoDatabase struct {
 }
 
 func (db *MongoDatabase) getDatabase() *mongo.Database {
-	return db.mongo.Database(db.database)
+	mongoDB := db.mongo.Database(db.database)
+	
+	if mongoDB == nil {
+		log.Panicf("Must configure mongodb to have a %v database", db.database)
+	}
+	return mongoDB
 }
 
 func (db *MongoDatabase) makeContext() (context.Context, context.CancelFunc) {
