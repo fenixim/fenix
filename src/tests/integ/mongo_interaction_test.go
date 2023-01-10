@@ -5,6 +5,7 @@ import (
 	"fenix/src/test_utils"
 	mockclient "fenix/src/test_utils/mock_client"
 	"fenix/src/websocket_models"
+	"log"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -19,7 +20,16 @@ func TestYodelIntegration(t *testing.T) {
 	t.Run("yodel creation results in new db entry", func(t *testing.T) {
 		env, err := godotenv.Read("../../../.env")
 		if err != nil {
-			t.Fatalf("%v\n", err)
+			t.Fatalf("No .env file in project root %v", err)
+		}
+		_, ok := env["mongo_addr"]
+		if !ok {
+			t.Fatal("Missing mongo_addr field in .env file")
+		}
+
+		_, ok = env["integration_testing"]
+		if !ok {
+			log.Fatal("Missing integration_testing field in .env file")
 		}
 
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
