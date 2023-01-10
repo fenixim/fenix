@@ -31,7 +31,7 @@ type MongoDatabase struct {
 
 func (db *MongoDatabase) getDatabase() *mongo.Database {
 	mongoDB := db.mongo.Database(db.database)
-	
+
 	if mongoDB == nil {
 		log.Panicf("Must configure mongodb to have a %v database", db.database)
 	}
