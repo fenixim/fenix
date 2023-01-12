@@ -174,29 +174,30 @@ func TestYodelHandlers(t *testing.T) {
 	})
 
 	t.Run("users can request yodel info", func(t *testing.T) {
-		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
+		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
 
-		yodel := &database.Yodel{Name: "Yodelyay"}
-		srv.Database.InsertYodel(yodel)
-
 		mock := mockclient.MockClient{}
-		mock.YodelGet(t, cli, yodel.YodelID.Hex())
+		mock.YodelCreate(t, cli, "Yodelyay")
+
+		var yodel websocket_models.Yodel
+		err := cli.Conn.ReadJSON(&yodel)
+		if err != nil {
+			t.Fatalf("%v\n", err)
+		}
+
+		mock.YodelGet(t, cli, yodel.YodelID)
 
 		var res websocket_models.Yodel
-		err := cli.Conn.ReadJSON(&res)
+		err = cli.Conn.ReadJSON(&res)
 		if err != nil {
 			t.Fatalf("%v\n", err)
 		}
 
-		resYodelID, err := primitive.ObjectIDFromHex(res.YodelID)
-		if err != nil {
-			t.Fatalf("%v\n", err)
-		}
-
-		got := &database.Yodel{YodelID: resYodelID, Name: res.Name}
-		expected := yodel
+		got := res
+		expected := websocket_models.Yodel{
+			YodelID: yodel.YodelID, Name: "Yodelyay"}.SetType()
 
 		test_utils.AssertEqual(t, got, expected)
 	})
