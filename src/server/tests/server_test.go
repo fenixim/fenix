@@ -201,7 +201,8 @@ func TestYodelHandlers(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("users requesting yodel info with invalid hex errors", func(t *testing.T) {
+	t.Run(`when users sends yodel request with invalid ID
+then server responds with GenericError`, func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
@@ -221,7 +222,9 @@ func TestYodelHandlers(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("ensure when user request yodel that does not exist errors", func(t *testing.T) {
+	t.Run(`given yodel ID that has not been registered
+when user requests yodel with that ID
+then server responds with GenericError`, func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
@@ -241,7 +244,8 @@ func TestYodelHandlers(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("users requesting yodel with no ID errors", func(t *testing.T) {
+	t.Run(`when user sends yodel request with empty ID field
+then server responds with GenericError`, func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
