@@ -3,7 +3,7 @@ package server_test
 import (
 	"fenix/src/database"
 	"fenix/src/test_utils"
-	"fenix/src/test_utils/mock_client"
+	mockclient "fenix/src/test_utils/mock_client"
 	"fenix/src/websocket_models"
 	"testing"
 	"time"
@@ -134,7 +134,7 @@ func TestErrorHandling(t *testing.T) {
 }
 
 func TestYodelHandlers(t *testing.T) {
-	t.Run("yodel creation sends back id", func(t *testing.T) {
+	t.Run("yodel creation results in valid id", func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
@@ -149,8 +149,9 @@ func TestYodelHandlers(t *testing.T) {
 		}
 
 		got := yodel.YodelID
-		notExpected := ""
-		test_utils.AssertNotEqual(t, got, notExpected)
+		if !primitive.IsValidObjectID(got) {
+			t.Errorf("Invalid YodelID: %q", got)
+		}
 	})
 
 	t.Run("yodel creation sends back name", func(t *testing.T) {
@@ -220,7 +221,7 @@ func TestYodelHandlers(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("users requesting yodel that doesnt exist errors", func(t *testing.T) {
+	t.Run("ensure when user request yodel that does not exist errors", func(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register")
 		defer close()
