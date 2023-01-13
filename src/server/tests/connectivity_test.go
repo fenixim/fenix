@@ -2,7 +2,7 @@ package server_test
 
 import (
 	"fenix/src/test_utils"
-	mockclient "fenix/src/test_utils/mock_client"
+	"fenix/src/test_utils/test_client"
 	"net/http"
 	"testing"
 
@@ -37,9 +37,9 @@ func TestStatusCodes(t *testing.T) {
 	t.Run("user does exist, wrong password", func(t *testing.T) {
 		srv := test_utils.StartServer()
 		defer srv.Close()
-		mock := mockclient.MockClient{}
+		testClient := testclient.TestClient{}
 
-		cli := mock.RegisterClient(t, srv, mockclient.Credentials{Username: "gopher123", Password: "gopher1234"})
+		cli := testClient.RegisterClient(t, srv, testclient.Credentials{Username: "gopher123", Password: "gopher1234"})
 		cli.Close()
 
 		srv.Addr.Path = "/login"
@@ -54,8 +54,8 @@ func TestStatusCodes(t *testing.T) {
 	t.Run("user does exist, right password", func(t *testing.T) {
 		srv := test_utils.StartServer()
 		defer srv.Close()
-		mock := mockclient.MockClient{}
-		mock.RegisterClient(t, srv, mockclient.Credentials{Username: "gopher123", Password: "gopher1234"})
+		testClient := testclient.TestClient{}
+		testClient.RegisterClient(t, srv, testclient.Credentials{Username: "gopher123", Password: "gopher1234"})
 
 		srv.Addr.Path = "/login"
 		cli := test_utils.Connect("gopher123", "gopher1234", srv.Addr)
@@ -70,9 +70,9 @@ func TestStatusCodes(t *testing.T) {
 		srv := test_utils.StartServer()
 		defer srv.Close()
 
-		mock := mockclient.MockClient{}
-		mock.RegisterClient(t, srv, mockclient.Credentials{Username: "gopher123", Password: "gopher1234"})
-		cli := mock.RegisterClient(t, srv, mockclient.Credentials{Username: "gopher123", Password: "gopher1234"})
+		testClient := testclient.TestClient{}
+		testClient.RegisterClient(t, srv, testclient.Credentials{Username: "gopher123", Password: "gopher1234"})
+		cli := testClient.RegisterClient(t, srv, testclient.Credentials{Username: "gopher123", Password: "gopher1234"})
 
 		got := cli.Res.StatusCode
 		expected := http.StatusConflict

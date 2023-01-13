@@ -3,7 +3,7 @@ package server_test
 import (
 	"fenix/src/database"
 	"fenix/src/test_utils"
-	mockclient "fenix/src/test_utils/mock_client"
+	"fenix/src/test_utils/test_client"
 	"fenix/src/websocket_models"
 	"testing"
 	"time"
@@ -32,8 +32,8 @@ func TestMessageHandlers(t *testing.T) {
 		_, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 
-		mock := mockclient.MockClient{}
-		mock.MsgSend(t, cli, "General Kenobi, you are a bold one!")
+		testClient := testclient.TestClient{}
+		testClient.MsgSend(t, cli, "General Kenobi, you are a bold one!")
 
 		var resProto websocket_models.MsgBroadcast
 		cli.Conn.ReadJSON(&resProto)
@@ -47,8 +47,8 @@ func TestMessageHandlers(t *testing.T) {
 		_, cli, close := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer close()
 
-		mock := mockclient.MockClient{}
-		mock.MsgSend(t, cli, "General Kenobi, you are a bold one!")
+		testClient := testclient.TestClient{}
+		testClient.MsgSend(t, cli, "General Kenobi, you are a bold one!")
 
 		var resProto websocket_models.MsgBroadcast
 		cli.Conn.ReadJSON(&resProto)
@@ -62,8 +62,8 @@ func TestMessageHandlers(t *testing.T) {
 		_, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 
-		mock := mockclient.MockClient{}
-		mock.MsgSend(t, cli, "")
+		testClient := testclient.TestClient{}
+		testClient.MsgSend(t, cli, "")
 
 		var resProto websocket_models.GenericError
 		err := cli.Conn.ReadJSON(&resProto)
@@ -81,10 +81,10 @@ func TestMessageHandlers(t *testing.T) {
 		defer closeConn()
 
 		test_utils.Populate(srv, 1)
-		mock := mockclient.MockClient{}
-		mock.MsgHistory(t, cli, 0, time.Now().UnixNano())
+		testClient := testclient.TestClient{}
+		testClient.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
-		got := len(mock.RecvMsgHistory(t, cli).Messages)
+		got := len(testClient.RecvMsgHistory(t, cli).Messages)
 		expected := 1
 		test_utils.AssertEqual(t, got, expected)
 	})
@@ -93,10 +93,10 @@ func TestMessageHandlers(t *testing.T) {
 		_, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 
-		mock := mockclient.MockClient{}
-		mock.MsgHistory(t, cli, 0, time.Now().UnixNano())
+		testClient := testclient.TestClient{}
+		testClient.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
-		got := len(mock.RecvMsgHistory(t, cli).Messages)
+		got := len(testClient.RecvMsgHistory(t, cli).Messages)
 		expected := 0
 		test_utils.AssertEqual(t, got, expected)
 	})
@@ -106,10 +106,10 @@ func TestMessageHandlers(t *testing.T) {
 		defer close()
 
 		test_utils.Populate(srv, 51)
-		mock := mockclient.MockClient{}
-		mock.MsgHistory(t, cli, 0, time.Now().UnixNano())
+		testClient := testclient.TestClient{}
+		testClient.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
-		got := len(mock.RecvMsgHistory(t, cli).Messages)
+		got := len(testClient.RecvMsgHistory(t, cli).Messages)
 		expected := 50
 		test_utils.AssertEqual(t, got, expected)
 	})
@@ -121,8 +121,8 @@ func TestErrorHandling(t *testing.T) {
 		defer close()
 
 		srv.Database.(*database.InMemoryDatabase).ShouldErrorOnNext = true
-		mock := mockclient.MockClient{}
-		mock.MsgSend(t, cli, "this should error.")
+		testClient := testclient.TestClient{}
+		testClient.MsgSend(t, cli, "this should error.")
 
 		var resProto websocket_models.GenericError
 		cli.Conn.ReadJSON(&resProto)
@@ -139,8 +139,8 @@ func TestYodelHandlers(t *testing.T) {
 			"mytotallyrealpassword", "/register")
 		defer close()
 
-		mock := mockclient.MockClient{}
-		mock.YodelCreate(t, cli, "Fenixland")
+		testClient := testclient.TestClient{}
+		testClient.YodelCreate(t, cli, "Fenixland")
 
 		var yodel websocket_models.Yodel
 		err := cli.Conn.ReadJSON(&yodel)
@@ -159,8 +159,8 @@ func TestYodelHandlers(t *testing.T) {
 			"mytotallyrealpassword", "/register")
 		defer close()
 
-		mock := mockclient.MockClient{}
-		mock.YodelCreate(t, cli, "Fenixland")
+		testClient := testclient.TestClient{}
+		testClient.YodelCreate(t, cli, "Fenixland")
 
 		var yodel websocket_models.Yodel
 		err := cli.Conn.ReadJSON(&yodel)
@@ -178,8 +178,8 @@ func TestYodelHandlers(t *testing.T) {
 			"mytotallyrealpassword", "/register")
 		defer close()
 
-		mock := mockclient.MockClient{}
-		mock.YodelCreate(t, cli, "Yodelyay")
+		testClient := testclient.TestClient{}
+		testClient.YodelCreate(t, cli, "Yodelyay")
 
 		var yodel websocket_models.Yodel
 		err := cli.Conn.ReadJSON(&yodel)
@@ -187,7 +187,7 @@ func TestYodelHandlers(t *testing.T) {
 			t.Fatalf("%v\n", err)
 		}
 
-		mock.YodelGet(t, cli, yodel.YodelID)
+		testClient.YodelGet(t, cli, yodel.YodelID)
 
 		var res websocket_models.Yodel
 		err = cli.Conn.ReadJSON(&res)
@@ -208,8 +208,8 @@ then server responds with GenericError`, func(t *testing.T) {
 			"mytotallyrealpassword", "/register")
 		defer close()
 
-		mock := mockclient.MockClient{}
-		mock.YodelGet(t, cli, "z0")
+		testClient := testclient.TestClient{}
+		testClient.YodelGet(t, cli, "z0")
 
 		var res websocket_models.GenericError
 		err := cli.Conn.ReadJSON(&res)
@@ -230,8 +230,8 @@ then server responds with GenericError`, func(t *testing.T) {
 			"mytotallyrealpassword", "/register")
 		defer close()
 
-		mock := mockclient.MockClient{}
-		mock.YodelGet(t, cli, primitive.NewObjectIDFromTimestamp(time.Now()).Hex())
+		testClient := testclient.TestClient{}
+		testClient.YodelGet(t, cli, primitive.NewObjectIDFromTimestamp(time.Now()).Hex())
 
 		var res websocket_models.GenericError
 		err := cli.Conn.ReadJSON(&res)

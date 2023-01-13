@@ -1,4 +1,4 @@
-package mockclient
+package testclient
 
 import (
 	"fenix/src/test_utils"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func (m *MockClient) MsgHistory(t *testing.T, cli *test_utils.ClientFields, from, to int64) {
+func (m *TestClient) MsgHistory(t *testing.T, cli *test_utils.ClientFields, from, to int64) {
 	t.Helper()
 
 	err := cli.Conn.WriteJSON(
@@ -16,7 +16,7 @@ func (m *MockClient) MsgHistory(t *testing.T, cli *test_utils.ClientFields, from
 	}
 }
 
-func (m *MockClient) MsgSend(t *testing.T, cli *test_utils.ClientFields, content string) {
+func (m *TestClient) MsgSend(t *testing.T, cli *test_utils.ClientFields, content string) {
 	t.Helper()
 
 	err := cli.Conn.WriteJSON(
@@ -26,7 +26,7 @@ func (m *MockClient) MsgSend(t *testing.T, cli *test_utils.ClientFields, content
 	}
 }
 
-func (m *MockClient) RecvMsgHistory(t *testing.T, cli *test_utils.ClientFields) websocket_models.MsgHistory {
+func (m *TestClient) RecvMsgHistory(t *testing.T, cli *test_utils.ClientFields) websocket_models.MsgHistory {
 	t.Helper()
 
 	var resProto websocket_models.MsgHistory

@@ -1,4 +1,4 @@
-package mockclient
+package testclient
 
 import (
 	"fenix/src/test_utils"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func (m *MockClient) YodelCreate(t *testing.T, cli *test_utils.ClientFields, name string) {
+func (m *TestClient) YodelCreate(t *testing.T, cli *test_utils.ClientFields, name string) {
 	t.Helper()
 	err := cli.Conn.WriteJSON(websocket_models.YodelCreate{Name: name}.SetType())
 	if err != nil {
@@ -14,7 +14,7 @@ func (m *MockClient) YodelCreate(t *testing.T, cli *test_utils.ClientFields, nam
 	}
 }
 
-func (m *MockClient) YodelGet(t *testing.T, cli *test_utils.ClientFields, yodelID string) {
+func (m *TestClient) YodelGet(t *testing.T, cli *test_utils.ClientFields, yodelID string) {
 	t.Helper()
 	err := cli.Conn.WriteJSON(websocket_models.YodelGet{YodelID: yodelID}.SetType())
 	if err != nil {

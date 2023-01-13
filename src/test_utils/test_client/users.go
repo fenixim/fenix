@@ -1,4 +1,4 @@
-package mockclient
+package testclient
 
 import (
 	"fenix/src/test_utils"
@@ -10,7 +10,7 @@ type Credentials struct {
 	Password string
 }
 
-func (m *MockClient) RegisterClient(t *testing.T, srv *test_utils.ServerFields, auth Credentials) *test_utils.ClientFields {
+func (m *TestClient) RegisterClient(t *testing.T, srv *test_utils.ServerFields, auth Credentials) *test_utils.ClientFields {
 	t.Helper()
 
 	srv.Addr.Path = "/register"
@@ -19,7 +19,7 @@ func (m *MockClient) RegisterClient(t *testing.T, srv *test_utils.ServerFields, 
 	return cli
 }
 
-func (m *MockClient) LoginClient(t *testing.T, srv *test_utils.ServerFields, auth Credentials) *test_utils.ClientFields {
+func (m *TestClient) LoginClient(t *testing.T, srv *test_utils.ServerFields, auth Credentials) *test_utils.ClientFields {
 	t.Helper()
 
 	srv.Addr.Path = "/login"

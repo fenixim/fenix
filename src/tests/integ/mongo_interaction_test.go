@@ -3,7 +3,7 @@ package mongo_interaction_test
 import (
 	"fenix/src/database"
 	"fenix/src/test_utils"
-	mockclient "fenix/src/test_utils/mock_client"
+	"fenix/src/test_utils/test_client"
 	"fenix/src/websocket_models"
 	"log"
 	"testing"
@@ -35,8 +35,8 @@ func TestYodelIntegration(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
 			"mytotallyrealpassword", "/register", env)
 		defer close()
-		mock := mockclient.MockClient{}
-		mock.YodelCreate(t, cli, "Fenixland")
+		testClient := testclient.TestClient{}
+		testClient.YodelCreate(t, cli, "Fenixland")
 
 		var yodel websocket_models.Yodel
 		err = cli.Conn.ReadJSON(&yodel)
