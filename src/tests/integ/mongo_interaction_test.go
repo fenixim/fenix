@@ -11,13 +11,7 @@ import (
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-func TestYodelIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
-
-	t.Run("yodel creation results in new db entry", func(t *testing.T) {
+func getEnv(t *testing.T) map[string]string {
 		env, err := godotenv.Read("../../../.env")
 		if err != nil {
 			t.Fatalf("No .env file in project root %v", err)
@@ -29,17 +23,26 @@ func TestYodelIntegration(t *testing.T) {
 
 		_, ok = env["integration_testing"]
 		if !ok {
-			log.Fatal("Missing integration_testing field in .env file")
+		t.Fatal("Missing integration_testing field in .env file")
+	}
+	return env
 		}
 
+func TestYodelIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	t.Run("yodel creation results in new db entry", func(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
-			"mytotallyrealpassword", "/register", env)
+			"mytotallyrealpassword", "/register", getEnv(t))
 		defer close()
 		testClient := testclient.TestClient{}
+
 		testClient.YodelCreate(t, cli, "Fenixland")
 
 		var yodel websocket_models.Yodel
-		err = cli.Conn.ReadJSON(&yodel)
+		err := cli.Conn.ReadJSON(&yodel)
 		if err != nil {
 			t.Fatalf("%v\n", err)
 		}

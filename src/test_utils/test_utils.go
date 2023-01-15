@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fenix/src/database"
 	"fenix/src/server"
+	"fenix/src/server/runner"
 	"fenix/src/utils"
 	"net/http"
 	"net/http/httptest"
@@ -65,7 +66,7 @@ func StartServer(mongoEnv ...map[string]string) *ServerFields {
 		db = database.NewInMemoryDatabase()
 	}
 
-	hub := server.NewHub(wg, db)
+	hub := runner.NewHub(wg, db)
 
 	srv := httptest.NewServer(hub.HTTPRequestHandler())
 	u, err := url.ParseRequestURI(srv.URL)
@@ -92,7 +93,7 @@ func Connect(username, password string, u url.URL) *ClientFields {
 	auth := base64.StdEncoding.EncodeToString([]byte(a))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	conn, res, _ := websocket.DefaultDialer.DialContext(ctx, u.String(), http.Header{"Authorization": []string{"Basic " + auth}})
-
+	
 	return &ClientFields{
 		Conn: conn,
 		Res:  res,

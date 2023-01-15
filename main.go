@@ -2,7 +2,7 @@ package main
 
 import (
 	"fenix/src/database"
-	"fenix/src/server"
+	"fenix/src/server/runner"
 	"fenix/src/utils"
 	"log"
 
@@ -26,7 +26,7 @@ func main() {
 		log.Panic("Missing db_name field in .env file")
 	}
 	
-	hub := server.NewHub(wg, database.NewMongoDatabase(mongo_addr, db_name))
+	hub := runner.NewHub(wg, database.NewMongoDatabase(mongo_addr, db_name))
 	hub.Serve("0.0.0.0:8080")
 
 	wg.Wait()
