@@ -5,7 +5,6 @@ import (
 	"fenix/src/test_utils"
 	"fenix/src/test_utils/test_client"
 	"fenix/src/websocket_models"
-	"log"
 	"testing"
 
 	"github.com/joho/godotenv"

@@ -38,7 +38,6 @@ func (y *YodelHandler) HandleYodelCreate(b []byte, c *server.Client) {
 
 	db_yodel := &database.Yodel{
 		Name: yodel.Name,
-		Owner: c.User.UserID,
 	}
 
 	err = y.hub.Database.InsertYodel(db_yodel)
@@ -85,7 +84,8 @@ func (y *YodelHandler) HandleYodelGet(b []byte, c *server.Client) {
 	}
 }
 
-func NewYodelHandler(hub *server.ServerHub) {
+func NewYodelHandler(hub *server.ServerHub) *YodelHandler {
 	y := YodelHandler{hub: hub}
 	y.init()
+	return &y
 }
