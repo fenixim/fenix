@@ -5,7 +5,6 @@ import (
 	"fenix/src/test_utils"
 	"fenix/src/test_utils/test_client"
 	"fenix/src/websocket_models"
-	"log"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -50,7 +49,6 @@ func TestYodelIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v\n", err)
 		}
-		t.Logf("YodelID: %v\n", yodel_ID)
 		got := &database.Yodel{YodelID: yodel_ID}
 		err = srv.Database.GetYodel(got)
 
@@ -58,9 +56,18 @@ func TestYodelIntegration(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
+		testClient.WhoAmI(t, cli)
+		var whoAmI websocket_models.WhoAmI
+		cli.Conn.ReadJSON(&whoAmI)
+		userID, err := primitive.ObjectIDFromHex(whoAmI.ID)
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
 		expected := &database.Yodel{
 			YodelID: yodel_ID,
 			Name:    "Fenixland",
+			Owner: userID,
 		}
 		test_utils.AssertEqual(t, got, expected)
 	})
