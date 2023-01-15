@@ -86,7 +86,8 @@ func (y *YodelHandler) HandleYodelGet(b []byte, c *server.Client) {
 	}
 }
 
-func NewYodelHandler(hub *server.ServerHub) {
+func NewYodelHandler(hub *server.ServerHub) *YodelHandler {
 	y := YodelHandler{hub: hub}
 	y.init()
+	return &y
 }
