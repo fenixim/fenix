@@ -38,19 +38,19 @@ func TestYodelIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q\n", err)
 		}
-
+		
 		testClient.WhoAmI(t, cli)
 		var whoAmI websocket_models.WhoAmI
-		cli.Conn.ReadJSON(&whoAmI)
-		userID, err := primitive.ObjectIDFromHex(whoAmI.ID)
+		err = cli.Conn.ReadJSON(&whoAmI)
 		if err != nil {
-			t.Fatalf("%q\n", err)
+			t.Fatalf("%v\n", err)
 		}
+
 
 		expected := &database.Yodel{
 			YodelID: yodel_ID,
 			Name:    "Fenixland",
-			Owner:   userID,
+			Owner:   whoAmI.ID,
 		}
 		test_utils.AssertEqual(t, got, expected)
 	})
