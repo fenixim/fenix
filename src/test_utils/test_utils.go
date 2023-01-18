@@ -93,7 +93,7 @@ func Connect(username, password string, u url.URL) *ClientFields {
 	auth := base64.StdEncoding.EncodeToString([]byte(a))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	conn, res, _ := websocket.DefaultDialer.DialContext(ctx, u.String(), http.Header{"Authorization": []string{"Basic " + auth}})
-	
+
 	return &ClientFields{
 		Conn: conn,
 		Res:  res,

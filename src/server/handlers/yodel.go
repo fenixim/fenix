@@ -37,7 +37,7 @@ func (y *YodelHandler) HandleYodelCreate(b []byte, c *server.Client) {
 	}
 
 	db_yodel := &database.Yodel{
-		Name: yodel.Name,
+		Name:  yodel.Name,
 		Owner: c.User.UserID,
 	}
 
@@ -51,7 +51,7 @@ func (y *YodelHandler) HandleYodelCreate(b []byte, c *server.Client) {
 	c.OutgoingPayloadQueue <- websocket_models.Yodel{
 		YodelID: db_yodel.YodelID.Hex(),
 		Name:    yodel.Name,
-		Owner: c.User.UserID.Hex(),
+		Owner:   c.User.UserID.Hex(),
 	}
 }
 

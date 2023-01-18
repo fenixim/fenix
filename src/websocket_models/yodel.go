@@ -18,7 +18,7 @@ type Yodel struct {
 	T       string `json:"type"`
 	YodelID string `json:"y_id"`
 	Name    string `json:"name"`
-	Owner string `json:"o_id"`
+	Owner   string `json:"o_id"`
 }
 
 func (b Yodel) Type() string {

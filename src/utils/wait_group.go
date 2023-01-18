@@ -20,7 +20,7 @@ func (w *WaitGroupCounter) Add(delta int64, name string) error {
 		panic("wg: Names field uninitialized")
 	}
 	if _, ok := w.Names.Load(name); ok {
-		return nil 
+		return nil
 	}
 	atomic.StoreInt64(&w.Counter, atomic.AddInt64(&w.Counter, delta))
 
@@ -33,7 +33,7 @@ func (w *WaitGroupCounter) Add(delta int64, name string) error {
 // name must be the same name provided to Add
 func (w *WaitGroupCounter) Done(name string) {
 	atomic.StoreInt64(&w.Counter, atomic.AddInt64(&w.Counter, -1))
-	
+
 	w.Names.Delete(name)
 
 	w.WaitGroup.Done()

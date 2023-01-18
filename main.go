@@ -25,7 +25,7 @@ func main() {
 	if !ok {
 		log.Panic("Missing db_name field in .env file")
 	}
-	
+
 	hub := runner.NewHub(wg, database.NewMongoDatabase(mongo_addr, db_name))
 	hub.Serve("0.0.0.0:8080")
 
