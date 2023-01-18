@@ -17,7 +17,7 @@ func main() {
 	if err != nil {
 		log.Panic("No .env file for database addresses!")
 	}
-	
+
 	mongo_addr, ok := env["mongo_addr"]
 	if !ok {
 		log.Panic("Missing mongo_addr field in .env file")
@@ -27,16 +27,16 @@ func main() {
 	if !ok {
 		log.Panic("Missing db_name field in .env file")
 	}
-	
+
 	log_level, ok := env["log_level"]
 	if !ok {
 		log.Panic("Missing log_level field in .env file")
 	}
 
 	level, err := strconv.Atoi(log_level)
-    if err != nil {
-        log.Panic("log_level must be int")
-    }
+	if err != nil {
+		log.Panic("log_level must be int")
+	}
 
 	utils.InitLogger(utils.LogLevel(level), "main.log")
 	hub := runner.NewHub(wg, database.NewMongoDatabase(mongo_addr, db_name))

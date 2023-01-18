@@ -11,7 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type DatabaseError struct {}
+type DatabaseError struct{}
+
 func (e DatabaseError) Error() string {
 	return "DatabaseError"
 }

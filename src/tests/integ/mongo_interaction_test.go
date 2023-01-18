@@ -10,22 +10,23 @@ import (
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-func getEnv(t *testing.T) map[string]string {
-		env, err := godotenv.Read("../../../.env")
-		if err != nil {
-			t.Fatalf("No .env file in project root %v", err)
-		}
-		_, ok := env["mongo_addr"]
-		if !ok {
-			t.Fatal("Missing mongo_addr field in .env file")
-		}
 
-		_, ok = env["integration_testing"]
-		if !ok {
+func getEnv(t *testing.T) map[string]string {
+	env, err := godotenv.Read("../../../.env")
+	if err != nil {
+		t.Fatalf("No .env file in project root %v", err)
+	}
+	_, ok := env["mongo_addr"]
+	if !ok {
+		t.Fatal("Missing mongo_addr field in .env file")
+	}
+
+	_, ok = env["integration_testing"]
+	if !ok {
 		t.Fatal("Missing integration_testing field in .env file")
 	}
 	return env
-		}
+}
 
 func TestYodelIntegration(t *testing.T) {
 	if testing.Short() {
@@ -67,7 +68,7 @@ func TestYodelIntegration(t *testing.T) {
 		expected := &database.Yodel{
 			YodelID: yodel_ID,
 			Name:    "Fenixland",
-			Owner: userID,
+			Owner:   userID,
 		}
 		test_utils.AssertEqual(t, got, expected)
 	})
