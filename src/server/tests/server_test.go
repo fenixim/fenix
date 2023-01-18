@@ -71,7 +71,7 @@ func TestMessageHandlers(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		expected := "message_empty"
+		expected := "MessageEmpty"
 		got := resProto.Error
 		test_utils.AssertEqual(t, got, expected)
 	})

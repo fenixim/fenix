@@ -49,6 +49,7 @@ type ClientFields struct {
 }
 
 func StartServer(mongoEnv ...map[string]string) *ServerFields {
+	utils.InitLogger(3)
 	wg := utils.NewWaitGroupCounter()
 	var db database.Database
 

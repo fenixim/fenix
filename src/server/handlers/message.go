@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fenix/src/database"
 	"fenix/src/server"
+	"fenix/src/utils"
 	"fenix/src/websocket_models"
-	"log"
 	"time"
 )
 
@@ -22,14 +22,14 @@ func (m *MessageHandler) HandleSendMessage(b []byte, c *server.Client) {
 	var msg websocket_models.MsgSend
 	err := json.Unmarshal(b, &msg)
 	if err != nil {
-		log.Printf("error in decoding message json: %v", err)
+		utils.InfoLogger.Printf("error in decoding message json: %v", err)
 		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "JSONDecodeError"}
 		return
 	}
 
 	if msg.Message == "" {
 		c.OutgoingPayloadQueue <- websocket_models.GenericError{
-			Error:   "message_empty",
+			Error:   "MessageEmpty",
 			Message: "Cannot send an empty message!",
 		}
 		return
@@ -63,14 +63,20 @@ func (m *MessageHandler) HandleSendMessage(b []byte, c *server.Client) {
 
 func (m *MessageHandler) HandleMessageHistory(b []byte, c *server.Client) {
 	hist := &websocket_models.MsgHistory{}
-	json.Unmarshal(b, hist)
-
-	msgs, err := m.hub.Database.GetMessagesBetween(hist.From, hist.To, 50)
+	err := json.Unmarshal(b, hist)
 	if err != nil {
-		log.Printf("error in HandleMessageHistory, %v", err)
+		utils.InfoLogger.Printf("error decoding message json, %v", err)
 		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "JSONDecodeError"}
 		return
 	}
+
+	msgs, err := m.hub.Database.GetMessagesBetween(hist.From, hist.To, 50)
+	if err != nil {
+		utils.ErrorLogger.Printf("Error handling message history request: %q", err)
+		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "DatabaseError"}
+		return
+	}
+
 	hist.Messages = msgs
 
 	c.OutgoingPayloadQueue <- hist
