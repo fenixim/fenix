@@ -1,12 +1,14 @@
 package test_utils
 
 import (
+	"bytes"
 	"context"
-	"encoding/base64"
+	"encoding/json"
 	"fenix/src/database"
 	"fenix/src/server"
 	"fenix/src/utils"
 	"fenix/src/websocket_models"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -114,7 +116,7 @@ func StartServer() *ServerFields {
 		panic(err)
 	}
 
-	addr := url.URL{Scheme: "ws", Host: u.Host}
+	addr := url.URL{Scheme: "http", Host: u.Host}
 	return &ServerFields{
 		Database: db,
 		Wg:       wg,
@@ -129,16 +131,54 @@ func StartServer() *ServerFields {
 }
 
 func Connect(username, password string, u url.URL) *ClientFields {
-	a := username + ":" + password
-	auth := base64.StdEncoding.EncodeToString([]byte(a))
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	conn, res, _ := websocket.DefaultDialer.DialContext(ctx, u.String(), http.Header{"Authorization": []string{"Basic " + auth}})
+	b, err := json.Marshal(map[string]string{"username": username, "password": password})
+	if err != nil {
+		panic(err)
+	}
 
+	res, err := http.Post(u.String(), "application/json", bytes.NewBuffer(b))
+	if err != nil {
+		panic(err)
+	}
+
+	resBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	res.Body.Close()
+	var body = make(map[string]string)
+	err = json.Unmarshal(resBody, &body)
+	if err != nil {
+		panic(err)
+	}
+
+	if res.StatusCode != 200 {
+		panic(res.Status)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*100)
+
+	ref, err := url.Parse("upgrade")
+	if err != nil {
+		panic(err)
+	}
+	wsAddr := u.ResolveReference(ref)
+	wsAddr.Scheme = "ws"
+	values := wsAddr.Query()
+	values.Add("t", body["ticket"])
+	values.Add("id", body["userID"])
+	wsAddr.RawQuery = values.Encode()
+
+	conn, wres, err := websocket.DefaultDialer.DialContext(ctx, wsAddr.String(), http.Header{})
+	if err != nil {
+		panic(err)
+	}
 	return &ClientFields{
 		Conn: conn,
-		Res:  res,
+		Res:  wres,
 		Close: func() {
-			if res.StatusCode == 101 {
+			if wres.StatusCode == 101 {
 				conn.Close()
 			}
 			cancel()

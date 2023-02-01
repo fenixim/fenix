@@ -1,88 +1,220 @@
 package server_test
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/json"
+	"fenix/src/database"
 	"fenix/src/test_utils"
 	"net/http"
 	"testing"
-
-	"github.com/gorilla/websocket"
 )
 
 func TestStatusCodes(t *testing.T) {
-	t.Run("no auth header", func(t *testing.T) {
+	t.Run("login with no body errors", func(t *testing.T) {
 		srv := test_utils.StartServer()
-		defer srv.Close()
-
 		srv.Addr.Path = "/login"
-		_, res, _ := websocket.DefaultDialer.Dial(srv.Addr.String(), http.Header{})
+		res, err := http.Post(srv.Addr.String(), "application/json", http.NoBody)
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
 
-		got := res.StatusCode
+		got := res.StatusCode 
 		expected := http.StatusBadRequest
 
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("user doesn't exist", func(t *testing.T) {
-		_, cli, closeConn := test_utils.StartServerAndConnect("gopherboi", "gopher1234", "/login")
-		defer closeConn()
+	t.Run("login with no username and password errors", func(t *testing.T) {
+		srv := test_utils.StartServer()
+		srv.Addr.Path = "/login"
 
-		got := cli.Res.StatusCode
+		b, err := json.Marshal(map[string]string{})
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		got := res.StatusCode 
+		expected := http.StatusBadRequest
+
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("login for user that doesnt exist errors", func(t *testing.T) {
+		srv := test_utils.StartServer()
+		srv.Addr.Path = "/login"
+
+		b, err := json.Marshal(map[string]string{"username": "gopher123", "password": "pass"})
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		got := res.StatusCode 
 		expected := http.StatusForbidden
 
 		test_utils.AssertEqual(t, got, expected)
-
 	})
 
-	t.Run("user does exist, wrong password", func(t *testing.T) {
+	t.Run("login for user with invalid password errors", func(t *testing.T) {
 		srv := test_utils.StartServer()
-		defer srv.Close()
+		u := &database.User{Username: "gopher123"}
 
-		cli := test_utils.RegisterClient(t, srv, test_utils.Credentials{"gopher123", "gopher1234"})
-		cli.Close()
+		u.Salt = make([]byte, 16)
+
+		rand.Read(u.Salt)
+		u.Password = []byte("pass")
+		u.HashPassword()
+	
+		err := srv.Database.InsertUser(u)
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
 
 		srv.Addr.Path = "/login"
-		cli = test_utils.Connect("gopher123", "notmypassword", srv.Addr)
 
-		got := cli.Res.StatusCode
+		b, err := json.Marshal(map[string]string{"username": "gopher123", "password": "notmypassword"})
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		got := res.StatusCode 
 		expected := http.StatusForbidden
 
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("user does exist, right password", func(t *testing.T) {
-		srv := test_utils.StartServer()
-		defer srv.Close()
 
-		test_utils.RegisterClient(t, srv, test_utils.Credentials{"gopher123", "gopher1234"})
+	t.Run("login for user with valid password is ok", func(t *testing.T) {
+		srv := test_utils.StartServer()
+		u := &database.User{Username: "gopher123"}
+
+		u.Salt = make([]byte, 16)
+
+		rand.Read(u.Salt)
+		u.Password = []byte("pass")
+		u.HashPassword()
+	
+		err := srv.Database.InsertUser(u)
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
 
 		srv.Addr.Path = "/login"
-		cli := test_utils.Connect("gopher123", "gopher1234", srv.Addr)
 
-		got := cli.Res.StatusCode
-		expected := http.StatusSwitchingProtocols
+		b, err := json.Marshal(map[string]string{"username": "gopher123", "password": "pass"})
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		got := res.StatusCode 
+		expected := http.StatusOK
 
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("user already exists, register", func(t *testing.T) {
+	t.Run("register with no body errors", func(t *testing.T) {
 		srv := test_utils.StartServer()
-		defer srv.Close()
+		srv.Addr.Path = "/register"
+		res, err := http.Post(srv.Addr.String(), "application/json", http.NoBody)
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
 
-		test_utils.RegisterClient(t, srv, test_utils.Credentials{"gopher123", "gopher1234"})
-		cli := test_utils.RegisterClient(t, srv, test_utils.Credentials{"gopher123", "gopher1234"})
+		got := res.StatusCode 
+		expected := http.StatusBadRequest
 
-		got := cli.Res.StatusCode
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("register with no username and password errors", func(t *testing.T) {
+		srv := test_utils.StartServer()
+		srv.Addr.Path = "/register"
+
+		b, err := json.Marshal(map[string]string{})
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		got := res.StatusCode 
+		expected := http.StatusBadRequest
+
+		test_utils.AssertEqual(t, got, expected)
+	})
+
+	t.Run("register for user that exists errors", func(t *testing.T) {
+		srv := test_utils.StartServer()
+		u := &database.User{Username: "gopher123"}
+
+		u.Salt = make([]byte, 16)
+
+		rand.Read(u.Salt)
+		u.Password = []byte("pass")
+		u.HashPassword()
+	
+		err := srv.Database.InsertUser(u)
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		srv.Addr.Path = "/register"
+
+		b, err := json.Marshal(map[string]string{"username": "gopher123", "password": "pass"})
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		got := res.StatusCode 
 		expected := http.StatusConflict
 
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("for incorrect path", func(t *testing.T) {
-		_, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "myawesomepassword", "/gophers")
-		defer closeConn()
+	t.Run("register for user that doesnt exist ok", func(t *testing.T) {
+		srv := test_utils.StartServer()
+		srv.Addr.Path = "/register"
 
-		got := cli.Res.StatusCode
-		expected := http.StatusNotFound
+		b, err := json.Marshal(map[string]string{"username": "gopher123", "password": "pass"})
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+		if err != nil {
+			t.Fatalf("%q\n", err)
+		}
+
+		got := res.StatusCode 
+		expected := http.StatusOK
 
 		test_utils.AssertEqual(t, got, expected)
 	})
