@@ -45,7 +45,10 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 	db_msg := database.Message{
 		Content:   msg_broadcast.Message,
 		Timestamp: msg_broadcast.Time,
-		Author:    msg_broadcast.Author.ID,
+		Author:    database.User{
+			UserID: client.User.UserID,
+			Username: client.User.Username,
+		},
 	}
 
 	err = m.hub.Database.InsertMessage(&db_msg)

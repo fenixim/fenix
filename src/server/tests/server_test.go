@@ -77,7 +77,7 @@ func TestProtocols(t *testing.T) {
 			srv.Hub.Database.InsertMessage(&database.Message{
 				Content:   "Hello there!",
 				Timestamp: time.Now().UnixNano(),
-				Author:    user.UserID.Hex(),
+				Author:    user,
 			})
 		}
 	}
