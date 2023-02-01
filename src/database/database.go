@@ -70,7 +70,7 @@ func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]*M
 }
 
 func (db *MongoDatabase) InsertUser(u *User) error {
-	coll := db.getDatabase().Collection("messages")
+	coll := db.getDatabase().Collection("users")
 
 	ctx, cancel := db.makeContext()
 	defer cancel()
@@ -86,7 +86,7 @@ func (db *MongoDatabase) GetUser(u *User) error {
 	if u.UserID != primitive.NilObjectID {
 		q = bson.D{{
 			"_id", bson.D{{
-				"$eq", u.UserID.Hex(),
+				"$eq", u.UserID,
 			}},
 		}}
 	} else if u.Username != "" {
