@@ -45,8 +45,8 @@ func (m *MessageHandler) HandleSendMessage(b []byte, client *Client) {
 	db_msg := database.Message{
 		Content:   msg_broadcast.Message,
 		Timestamp: msg_broadcast.Time,
-		Author:    database.User{
-			UserID: client.User.UserID,
+		Author: database.User{
+			UserID:   client.User.UserID,
 			Username: client.User.Username,
 		},
 	}
@@ -93,7 +93,7 @@ func (i *IdentificationHandler) HandleWhoAmI(b []byte, c *Client) {
 	whoami := &websocket_models.WhoAmI{}
 	json.Unmarshal(b, whoami)
 	c.OutgoingPayloadQueue <- websocket_models.WhoAmI{
-		Nonce: whoami.GetNonce(),
+		Nonce:    whoami.GetNonce(),
 		ID:       c.User.UserID.Hex(),
 		Username: c.User.Username,
 	}

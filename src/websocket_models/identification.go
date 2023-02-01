@@ -30,7 +30,7 @@ func (n WhoAmI) GetNonce() string {
 
 type GenericError struct {
 	T       string `json:"type"`
-	Nonce    string `json:"n"`
+	Nonce   string `json:"n"`
 	Error   string `json:"error"`
 	Message string `json:"msg"`
 }
@@ -46,4 +46,3 @@ func (b GenericError) SetType() JSONModel {
 func (n GenericError) GetNonce() string {
 	return n.Nonce
 }
-

@@ -19,7 +19,7 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusBadRequest
 
 		test_utils.AssertEqual(t, got, expected)
@@ -39,7 +39,7 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusBadRequest
 
 		test_utils.AssertEqual(t, got, expected)
@@ -59,7 +59,7 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusForbidden
 
 		test_utils.AssertEqual(t, got, expected)
@@ -74,7 +74,7 @@ func TestStatusCodes(t *testing.T) {
 		rand.Read(u.Salt)
 		u.Password = []byte("pass")
 		u.HashPassword()
-	
+
 		err := srv.Database.InsertUser(u)
 		if err != nil {
 			t.Fatalf("%q\n", err)
@@ -92,12 +92,11 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusForbidden
 
 		test_utils.AssertEqual(t, got, expected)
 	})
-
 
 	t.Run("login for user with valid password is ok", func(t *testing.T) {
 		srv := test_utils.StartServer()
@@ -108,7 +107,7 @@ func TestStatusCodes(t *testing.T) {
 		rand.Read(u.Salt)
 		u.Password = []byte("pass")
 		u.HashPassword()
-	
+
 		err := srv.Database.InsertUser(u)
 		if err != nil {
 			t.Fatalf("%q\n", err)
@@ -126,7 +125,7 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusOK
 
 		test_utils.AssertEqual(t, got, expected)
@@ -140,7 +139,7 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusBadRequest
 
 		test_utils.AssertEqual(t, got, expected)
@@ -160,7 +159,7 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusBadRequest
 
 		test_utils.AssertEqual(t, got, expected)
@@ -175,7 +174,7 @@ func TestStatusCodes(t *testing.T) {
 		rand.Read(u.Salt)
 		u.Password = []byte("pass")
 		u.HashPassword()
-	
+
 		err := srv.Database.InsertUser(u)
 		if err != nil {
 			t.Fatalf("%q\n", err)
@@ -193,7 +192,7 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusConflict
 
 		test_utils.AssertEqual(t, got, expected)
@@ -213,7 +212,7 @@ func TestStatusCodes(t *testing.T) {
 			t.Fatalf("%q\n", err)
 		}
 
-		got := res.StatusCode 
+		got := res.StatusCode
 		expected := http.StatusOK
 
 		test_utils.AssertEqual(t, got, expected)

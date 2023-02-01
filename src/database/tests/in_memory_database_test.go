@@ -35,7 +35,7 @@ func TestBasicOperations(t *testing.T) {
 
 	t.Run("message history within limit", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
-		db.InsertMessage(database.NewMessage(database.User{},"hello"))
+		db.InsertMessage(database.NewMessage(database.User{}, "hello"))
 
 		history, _ := db.GetMessagesBetween(0, time.Now().UnixNano(), 0)
 		got := len(history)

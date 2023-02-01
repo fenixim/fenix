@@ -23,7 +23,7 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func (r *http.Request) bool {
+	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
@@ -149,7 +149,7 @@ func (hub *ServerHub) upgrade(w http.ResponseWriter, r *http.Request) {
 	id, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		return 
+		return
 	}
 
 	u := database.User{UserID: id}
@@ -167,7 +167,7 @@ func (hub *ServerHub) createToken(u *database.User) []byte {
 	encodedTicket := base64.URLEncoding.EncodeToString(ticket)
 
 	hub.tickets.Store(u.UserID.Hex(), encodedTicket)
-	go func(){
+	go func() {
 		time.Sleep(5 * time.Second)
 		hub.tickets.Delete(u.UserID)
 	}()
@@ -189,12 +189,12 @@ func (hub *ServerHub) Login(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Max-Age", "86400")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusNoContent)
-		return 
+		return
 	}
 
 	decoder := json.NewDecoder(r.Body)
-    var body map[string]string
-    err := decoder.Decode(&body)
+	var body map[string]string
+	err := decoder.Decode(&body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -240,11 +240,11 @@ func (hub *ServerHub) Register(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Max-Age", "86400")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.WriteHeader(http.StatusNoContent)
-		return 
+		return
 	}
 	decoder := json.NewDecoder(r.Body)
-    var body map[string]string
-    err := decoder.Decode(&body)
+	var body map[string]string
+	err := decoder.Decode(&body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
