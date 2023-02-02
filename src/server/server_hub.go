@@ -172,7 +172,7 @@ func (hub *ServerHub) createToken(u *database.User) []byte {
 		hub.tickets.Delete(u.UserID)
 	}()
 
-	b, err := json.Marshal(map[string]any{"userID": u.UserID.Hex(), "username": u.Username, "ticket": encodedTicket})
+	b, err := json.Marshal(map[string]interface{}{"userID": u.UserID.Hex(), "username": u.Username, "ticket": encodedTicket})
 	if err != nil {
 		fmt.Errorf("Error marshalling JSON: %q", err)
 		return nil
