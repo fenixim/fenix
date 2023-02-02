@@ -48,11 +48,8 @@ type ClientFields struct {
 	Close func()
 }
 
-func StartServer(mongoEnv ...map[string]string) *ServerFields {
-	utils.InitLogger(3)
-	wg := utils.NewWaitGroupCounter()
+func maybeGetMongoDB(mongoEnv ...map[string]string) database.Database {
 	var db database.Database
-
 	if len(mongoEnv) != 0 {
 		addr, addrok := mongoEnv[0]["mongo_addr"]
 		intTest, intTestOk := mongoEnv[0]["integration_testing"]
@@ -66,6 +63,12 @@ func StartServer(mongoEnv ...map[string]string) *ServerFields {
 	} else {
 		db = database.NewInMemoryDatabase()
 	}
+	return db
+}
+
+func StartServer(mongoEnv ...map[string]string) *ServerFields {
+	wg := utils.NewWaitGroupCounter()
+	db := maybeGetMongoDB(mongoEnv...)
 
 	hub := runner.NewHub(wg, db)
 
@@ -117,7 +120,7 @@ func StartServerAndConnect(username, password, endpoint string, mongoEnv ...map[
 	}
 }
 
-func Populate(srv *ServerFields, count int) {
+func PopulateDB(srv *ServerFields, count int) {
 	user := database.User{Username: "gopher123"}
 	srv.Hub.Database.GetUser(&user)
 

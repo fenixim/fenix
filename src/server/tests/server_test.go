@@ -3,7 +3,7 @@ package server_test
 import (
 	"fenix/src/database"
 	"fenix/src/test_utils"
-	"fenix/src/test_utils/test_client"
+	testclient "fenix/src/test_utils/test_client"
 	"fenix/src/websocket_models"
 	"testing"
 	"time"
@@ -80,7 +80,7 @@ func TestMessageHandlers(t *testing.T) {
 		srv, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 
-		test_utils.Populate(srv, 1)
+		test_utils.PopulateDB(srv, 1)
 		testClient := testclient.TestClient{}
 		testClient.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
@@ -105,7 +105,7 @@ func TestMessageHandlers(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
 		defer close()
 
-		test_utils.Populate(srv, 51)
+		test_utils.PopulateDB(srv, 51)
 		testClient := testclient.TestClient{}
 		testClient.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
