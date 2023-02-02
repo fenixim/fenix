@@ -1,7 +1,7 @@
 package database
 
 import (
-	"log"
+	"fenix/src/utils"
 	"sort"
 	"sync"
 	"time"
@@ -48,6 +48,9 @@ type InMemoryDatabase struct {
 
 	users     map[string]*User
 	usersLock *sync.Mutex
+
+	yodels     map[string]*Yodel
+	yodelsLock *sync.Mutex
 }
 
 func NewInMemoryDatabase() *InMemoryDatabase {
@@ -55,6 +58,8 @@ func NewInMemoryDatabase() *InMemoryDatabase {
 		users:        make(map[string]*User),
 		usersLock:    &sync.Mutex{},
 		messagesLock: &sync.Mutex{},
+		yodels:       make(map[string]*Yodel),
+		yodelsLock:   &sync.Mutex{},
 	}
 }
 
@@ -130,8 +135,53 @@ func (db *InMemoryDatabase) GetUser(req *User) error {
 		}
 		return DoesNotExist{}
 	} else {
-		log.Panic("GetUser needs fields in User!")
+		utils.ErrorLogger.Println("GetUser needs fields in User!")
+		return DatabaseError{}
 	}
+
+	return nil
+}
+
+func (db *InMemoryDatabase) InsertYodel(y *Yodel) error {
+	db.yodelsLock.Lock()
+	defer db.yodelsLock.Unlock()
+
+	if db.ShouldErrorOnNext {
+		return FakeDatabaseError{}
+	}
+
+	y.YodelID = primitive.NewObjectIDFromTimestamp(time.Unix(int64(len(db.users)+1), 0))
+	db.yodels[y.YodelID.Hex()] = y
+	return nil
+}
+
+func (db *InMemoryDatabase) GetYodel(y *Yodel) error {
+	db.yodelsLock.Lock()
+	defer db.yodelsLock.Unlock()
+
+	if db.ShouldErrorOnNext {
+		return FakeDatabaseError{}
+	}
+	yodel, ok := db.yodels[y.YodelID.Hex()]
+	if !ok {
+		return DoesNotExist{}
+	}
+	*y = *yodel
+	return nil
+}
+
+func (db *InMemoryDatabase) ClearDB() error {
+	db.messagesLock.Lock()
+	db.messages = []*Message{}
+	db.messagesLock.Unlock()
+
+	db.usersLock.Lock()
+	db.users = make(map[string]*User)
+	db.usersLock.Unlock()
+
+	db.yodelsLock.Lock()
+	db.yodels = make(map[string]*Yodel)
+	db.yodelsLock.Unlock()
 
 	return nil
 }

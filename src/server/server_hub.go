@@ -9,8 +9,6 @@ import (
 	"fenix/src/database"
 	"fenix/src/utils"
 	"fenix/src/websocket_models"
-	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -32,35 +30,14 @@ var version = "0.1"
 
 // Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
-	clients           *sync.Map
-	broadcast_payload chan websocket_models.JSONModel
-	ctx               context.Context
+	Clients           *sync.Map
+	Broadcast_payload chan websocket_models.JSONModel
+	Ctx               context.Context
 	Shutdown          context.CancelFunc
 	Handlers          map[string]func([]byte, *Client)
 	Wg                *utils.WaitGroupCounter
 	Database          database.Database
-	tickets           *sync.Map
-}
-
-// Function to make and start an instance of ServerHub
-func NewHub(wg *utils.WaitGroupCounter, database database.Database) *ServerHub {
-	hub := ServerHub{
-		clients:           &sync.Map{},
-		broadcast_payload: make(chan websocket_models.JSONModel),
-		Handlers:          make(map[string]func([]byte, *Client)),
-		Wg:                wg,
-		Database:          database,
-		tickets:           &sync.Map{},
-	}
-
-	NewMessageHandler(&hub)
-	NewIdentificationHandler(&hub)
-
-	hub.ctx, hub.Shutdown = context.WithCancel(context.Background())
-
-	go hub.run()
-
-	return &hub
+	Tickets           *sync.Map
 }
 
 // Registers a message handler to be called when a type of message is recieved.
@@ -81,8 +58,8 @@ func (hub *ServerHub) broadcast() (context.Context, context.CancelFunc) {
 	go func() {
 		for {
 			select {
-			case d := <-hub.broadcast_payload:
-				hub.clients.Range(
+			case d := <-hub.Broadcast_payload:
+				hub.Clients.Range(
 					func(key, value interface{}) bool {
 					go func() {value.(*Client).OutgoingPayloadQueue <- d}()
 					return true
@@ -100,7 +77,7 @@ func (hub *ServerHub) broadcast() (context.Context, context.CancelFunc) {
 
 // Starts all goroutines for server to run.
 // Will stop all goroutines when hub.Shutdown() is called.
-func (hub *ServerHub) run() {
+func (hub *ServerHub) Run() {
 	_, broadcastCancel := hub.broadcast()
 
 	err := hub.Wg.Add(1, "ServerHub_Run")
@@ -108,10 +85,11 @@ func (hub *ServerHub) run() {
 		panic(err)
 	}
 
-	<-hub.ctx.Done()
-	hub.clients.Range(func(key, value interface{}) bool {
+	<-hub.Ctx.Done()
+	utils.InfoLogger.Printf("Server shutting down...")
+
+	hub.Clients.Range(func(key, value interface{}) bool {
 		client := value.(*Client)
-		log.Printf("Closing client %v", client.User.UserID.Hex())
 		client.Close("")
 		return true
 	})
@@ -130,7 +108,7 @@ func (hub *ServerHub) upgrade(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	vTicket, ok := hub.tickets.LoadAndDelete(userID)
+	vTicket, ok := hub.Tickets.LoadAndDelete(userID)
 
 	if !ok {
 		w.WriteHeader(http.StatusForbidden)
@@ -142,23 +120,26 @@ func (hub *ServerHub) upgrade(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	conn, err := upgrader.Upgrade(w, r, http.Header{"Fenix-Version": []string{version}})
+
+	conn, err := websocket.Upgrade(w, r, http.Header{}, 1024, 1024)
 	if err != nil {
-		log.Println(err)
+		utils.InfoLogger.Printf("Error upgrading connection to websocket: %q", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
 	id, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
+		utils.InfoLogger.Printf("Error parsing objectid: %q", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	u := database.User{UserID: id}
 	hub.Database.GetUser(&u)
-
 	client := &Client{hub: hub, conn: conn, User: database.User{Username: u.Username}}
 	client.New()
-	hub.clients.Store(client.User.UserID.Hex(), client)
+	hub.Clients.Store(client.User.UserID.Hex(), client)
 }
 
 func (hub *ServerHub) createToken(u *database.User) []byte {
@@ -167,15 +148,15 @@ func (hub *ServerHub) createToken(u *database.User) []byte {
 	rand.Read(ticket)
 	encodedTicket := base64.URLEncoding.EncodeToString(ticket)
 
-	hub.tickets.Store(u.UserID.Hex(), encodedTicket)
+	hub.Tickets.Store(u.UserID.Hex(), encodedTicket)
 	go func() {
 		time.Sleep(5 * time.Second)
-		hub.tickets.Delete(u.UserID)
+		hub.Tickets.Delete(u.UserID)
 	}()
 
 	b, err := json.Marshal(map[string]interface{}{"userID": u.UserID.Hex(), "username": u.Username, "ticket": encodedTicket})
 	if err != nil {
-		fmt.Errorf("Error marshalling JSON: %q", err)
+		utils.InfoLogger.Printf("Error marshalling JSON: %q", err)
 		return nil
 	}
 	return b
@@ -276,7 +257,7 @@ func (hub *ServerHub) Register(w http.ResponseWriter, r *http.Request) {
 	err = hub.Database.InsertUser(u)
 
 	if err != nil {
-		fmt.Errorf("Error inserting user: %v", err)
+		utils.ErrorLogger.Printf("Error inserting user (%q:%q): %q", u.UserID.Hex(), u.Username, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -301,9 +282,9 @@ func (hub *ServerHub) Serve(addr string) {
 
 	err := hub.Wg.Add(1, "ServerHub_ListenAndServe")
 	if err != nil {
-		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
+		utils.ErrorLogger.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
-	log.Printf("Listening on %v", addr)
+	utils.InfoLogger.Printf("Listening on %v", addr)
 	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)

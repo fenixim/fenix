@@ -67,18 +67,7 @@ func TestStatusCodes(t *testing.T) {
 
 	t.Run("login for user with invalid password errors", func(t *testing.T) {
 		srv := test_utils.StartServer()
-		u := &database.User{Username: "gopher123"}
-
-		u.Salt = make([]byte, 16)
-
-		rand.Read(u.Salt)
-		u.Password = []byte("pass")
-		u.HashPassword()
-
-		err := srv.Database.InsertUser(u)
-		if err != nil {
-			t.Fatalf("%q\n", err)
-		}
+		defer srv.Close()
 
 		srv.Addr.Path = "/login"
 
@@ -100,20 +89,15 @@ func TestStatusCodes(t *testing.T) {
 
 	t.Run("login for user with valid password is ok", func(t *testing.T) {
 		srv := test_utils.StartServer()
-		u := &database.User{Username: "gopher123"}
-
-		u.Salt = make([]byte, 16)
-
-		rand.Read(u.Salt)
-		u.Password = []byte("pass")
-		u.HashPassword()
-
-		err := srv.Database.InsertUser(u)
-		if err != nil {
-			t.Fatalf("%q\n", err)
-		}
+		defer srv.Close()
 
 		srv.Addr.Path = "/login"
+		u := &database.User{
+			Username: "gopher123",
+			Password: []byte("pass"),
+		}
+		u.HashPassword()
+		srv.Database.InsertUser(u)
 
 		b, err := json.Marshal(map[string]string{"username": "gopher123", "password": "pass"})
 		if err != nil {
@@ -181,17 +165,16 @@ func TestStatusCodes(t *testing.T) {
 		}
 
 		srv.Addr.Path = "/register"
-
 		b, err := json.Marshal(map[string]string{"username": "gopher123", "password": "pass"})
 		if err != nil {
 			t.Fatalf("%q\n", err)
 		}
-
 		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+
 		if err != nil {
 			t.Fatalf("%q\n", err)
 		}
-
+		
 		got := res.StatusCode
 		expected := http.StatusConflict
 
@@ -206,8 +189,8 @@ func TestStatusCodes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q\n", err)
 		}
-
 		res, err := http.Post(srv.Addr.String(), "application/json", bytes.NewBuffer(b))
+
 		if err != nil {
 			t.Fatalf("%q\n", err)
 		}

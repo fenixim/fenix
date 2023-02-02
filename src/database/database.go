@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"log"
+	"fenix/src/utils"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -11,12 +11,23 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type DatabaseError struct{}
+
+func (e DatabaseError) Error() string {
+	return "DatabaseError"
+}
+
 type Database interface {
 	InsertMessage(*Message) error
 	GetMessagesBetween(int64, int64, int64) ([]*Message, error)
 
 	InsertUser(*User) error
 	GetUser(*User) error
+
+	InsertYodel(*Yodel) error
+	GetYodel(*Yodel) error
+
+	ClearDB() error
 }
 
 type MongoDatabase struct {
@@ -25,11 +36,46 @@ type MongoDatabase struct {
 }
 
 func (db *MongoDatabase) getDatabase() *mongo.Database {
-	return db.mongo.Database(db.database)
+	mongoDB := db.mongo.Database(db.database)
+
+	if mongoDB == nil {
+		utils.ErrorLogger.Panicf("Must configure mongodb to have a %v database", db.database)
+	}
+
+	return mongoDB
 }
 
 func (db *MongoDatabase) makeContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), time.Second*5)
+}
+
+func (db *MongoDatabase) InsertYodel(y *Yodel) error {
+	coll := db.getDatabase().Collection("yodels")
+
+	ctx, cancel := db.makeContext()
+	defer cancel()
+
+	res, err := coll.InsertOne(ctx, y)
+
+	y.YodelID = res.InsertedID.(primitive.ObjectID)
+	return err
+}
+
+func (db *MongoDatabase) GetYodel(y *Yodel) error {
+	coll := db.getDatabase().Collection("yodels")
+
+	ctx, cancel := db.makeContext()
+	defer cancel()
+	q := bson.D{{
+		"_id", bson.D{{
+			"$eq", y.YodelID,
+		}},
+	}}
+
+	res := coll.FindOne(ctx, q)
+
+	err := res.Decode(y)
+	return err
 }
 
 func (db *MongoDatabase) InsertMessage(m *Message) error {
@@ -76,8 +122,12 @@ func (db *MongoDatabase) InsertUser(u *User) error {
 	defer cancel()
 
 	res, err := coll.InsertOne(ctx, u)
+	if err != nil {
+		return err
+	}
+
 	u.UserID = res.InsertedID.(primitive.ObjectID)
-	return err
+	return nil
 }
 
 func (db *MongoDatabase) GetUser(u *User) error {
@@ -96,7 +146,8 @@ func (db *MongoDatabase) GetUser(u *User) error {
 			}},
 		}}
 	} else {
-		log.Panic("GetUser needs fields in User!")
+		utils.ErrorLogger.Println("GetUser needs fields in User!")
+		return DatabaseError{}
 	}
 
 	ctx, cancel := db.makeContext()
@@ -123,6 +174,13 @@ func (db *MongoDatabase) DeleteUser(u *User) error {
 	return err
 }
 
+func (db *MongoDatabase) ClearDB() error {
+	ctx, cancel := db.makeContext()
+	defer cancel()
+
+	return db.getDatabase().Drop(ctx)
+}
+
 func NewMongoDatabase(mongo_addr string, database string) *MongoDatabase {
 	serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
 	clientOptions := options.Client().
@@ -133,7 +191,7 @@ func NewMongoDatabase(mongo_addr string, database string) *MongoDatabase {
 	c, err := mongo.Connect(ctx, clientOptions)
 
 	if err != nil {
-		log.Fatalf("Error connecting to mongoDB: %v", err)
+		utils.ErrorLogger.Panicf("Error connecting to mongoDB: %v", err)
 	}
 
 	db := MongoDatabase{
