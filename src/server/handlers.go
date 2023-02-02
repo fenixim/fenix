@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fenix/src/database"
 	"fenix/src/websocket_models"
-	"fmt"
 	"log"
 	"time"
 )
