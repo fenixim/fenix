@@ -82,8 +82,9 @@ func (hub *ServerHub) broadcast() (context.Context, context.CancelFunc) {
 		for {
 			select {
 			case d := <-hub.broadcast_payload:
-				hub.clients.Range(func(key, value interface{}) bool {
-					value.(*Client).OutgoingPayloadQueue <- d
+				hub.clients.Range(
+					func(key, value interface{}) bool {
+					go func() {value.(*Client).OutgoingPayloadQueue <- d}()
 					return true
 				})
 

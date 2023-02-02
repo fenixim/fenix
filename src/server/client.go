@@ -32,9 +32,9 @@ type Client struct {
 
 // Can be called multiple times.  Should be deferred at end of functions
 func (c *Client) Close(wg_id string) {
-	if wg_id != "" {
-		c.hub.Wg.Done(wg_id)
-	}
+	// if wg_id != "" {
+	// 	c.hub.Wg.Done(wg_id)
+	// }
 	if !c.Closed {
 		c.ClientEventLoop <- ClientQuit{}
 	}
@@ -66,12 +66,12 @@ func (c *Client) OnClose(code int, text string) error {
 }
 
 func (c *Client) listenOnWebsocket() {
-	err := c.hub.Wg.Add(1, "Client_ListenOnWebsocket__"+c.User.UserID.Hex())
-	if err != nil {
-		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
-	}
+	// err := c.hub.Wg.Add(1, "Client_ListenOnWebsocket__"+c.User.UserID.Hex())
+	// if err != nil {
+		// log.Fatalf("Error adding goroutine to waitgroup: %v", err)
+	// }
 
-	defer c.Close("Client_ListenOnWebsocket__" + c.User.UserID.Hex())
+	// defer c.Close("Client_ListenOnWebsocket__" + c.User.UserID.Hex())
 
 	for {
 		var t struct {
@@ -103,12 +103,12 @@ func (c *Client) listenOnWebsocket() {
 }
 
 func (c *Client) listenOnEventLoop() {
-	err := c.hub.Wg.Add(1, "Client_ListenOnEventLoop__"+c.User.UserID.Hex())
-	if err != nil {
-		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
-	}
+	// err := c.hub.Wg.Add(1, "Client_ListenOnEventLoop__"+c.User.UserID.Hex())
+	// if err != nil {
+	// 	log.Fatalf("Error adding goroutine to waitgroup: %v", err)
+	// }
 
-	defer c.Close("Client_ListenOnEventLoop__" + c.User.UserID.Hex())
+	// defer c.Close("Client_ListenOnEventLoop__" + c.User.UserID.Hex())
 	for {
 		select {
 		case e := <-c.ClientEventLoop:

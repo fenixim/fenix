@@ -54,7 +54,7 @@ func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]*M
 			bson.D{{"timestamp", bson.D{{"$lte", b}}}},
 		},
 	}}
-	opts := options.Find().SetSort(bson.D{{"timestamp", 1}}).SetLimit(limit)
+	opts := options.Find().SetSort(bson.D{{"timestamp", -1}}).SetLimit(limit)
 
 	ctx, cancel := db.makeContext()
 	defer cancel()
