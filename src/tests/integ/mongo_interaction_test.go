@@ -7,9 +7,9 @@ import (
 	"fenix/src/websocket_models"
 	"testing"
 
-	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
 func getEnv(t *testing.T) map[string]string {
 		env, err := godotenv.Read("../../../.env")
 		if err != nil {
@@ -27,6 +27,7 @@ func getEnv(t *testing.T) map[string]string {
 	return env
 		}
 
+
 func TestYodelIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
@@ -34,7 +35,7 @@ func TestYodelIntegration(t *testing.T) {
 
 	t.Run("yodel creation results in new db entry", func(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
-			"mytotallyrealpassword", "/register", getEnv(t))
+			"mytotallyrealpassword", "/register", true)
 		defer close()
 		testClient := testclient.TestClient{}
 
