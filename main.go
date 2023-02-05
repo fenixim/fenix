@@ -27,7 +27,7 @@ func getMongoDB() database.Database {
 
 func main() {
 	wg := utils.NewWaitGroupCounter()
-	
+
 	hub := runner.NewHub(wg, getMongoDB())
 	hub.Serve("0.0.0.0:8080")
 
