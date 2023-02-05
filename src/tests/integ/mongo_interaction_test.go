@@ -35,7 +35,7 @@ func TestYodelIntegration(t *testing.T) {
 
 	t.Run("yodel creation results in new db entry", func(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123",
-			"mytotallyrealpassword", "/register", getEnv(t))
+			"mytotallyrealpassword", "/register", true)
 		defer close()
 		testClient := testclient.TestClient{}
 
