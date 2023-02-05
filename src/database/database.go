@@ -85,6 +85,10 @@ func (db *MongoDatabase) InsertMessage(m *Message) error {
 	defer cancel()
 
 	res, err := coll.InsertOne(ctx, m)
+	if err != nil {
+		utils.ErrorLogger.Printf("Got error while inserting message: %q", err)
+		return err
+	}
 
 	m.MessageID = res.InsertedID.(primitive.ObjectID)
 	return err
@@ -112,6 +116,11 @@ func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]*M
 	var res []*Message
 
 	err = cur.All(context.Background(), &res)
+
+	for i, j := 0, len(res)-1; i < j; i, j = i+1, j-1 {
+		res[i], res[j] = res[j], res[i]
+	}
+	
 	return res, err
 }
 
@@ -185,7 +194,7 @@ func NewMongoDatabase(mongo_addr string, database string) *MongoDatabase {
 	serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
 	clientOptions := options.Client().
 		ApplyURI(mongo_addr).
-		SetServerAPIOptions(serverAPIOptions)
+		SetServerAPIOptions(serverAPIOptions).SetMaxPoolSize(0)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	c, err := mongo.Connect(ctx, clientOptions)
