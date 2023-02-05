@@ -4,18 +4,31 @@ import (
 	"fenix/src/database"
 	"fenix/src/server"
 	"fenix/src/utils"
-
-	"github.com/joho/godotenv"
+	"log"
+	"os"
 )
 
-func main() {
-	wg := utils.WaitGroupCounter{}
-	env, err := godotenv.Read(".env")
-	if err != nil {
-		panic(err)
-	}
+func getMongoDB() database.Database {
+	var db database.Database
+	mongoAddr := os.Getenv("mongo_addr")
+	dbName := os.Getenv("database")
 
-	hub := server.NewHub(&wg, database.NewMongoDatabase(env["mongo_addr"], env["db_name"]))
+	if mongoAddr == "" || dbName == "" {
+		log.Panicf("Couldn't get database env -  mongoAddr: %q   intTest: %q", mongoAddr, dbName)
+	} else {
+		db = database.NewMongoDatabase(mongoAddr, dbName)
+		err := db.ClearDB()
+		if err != nil {
+			panic(err)
+		}
+	}
+	return db
+}
+
+func main() {
+	wg := utils.NewWaitGroupCounter()
+
+	hub := server.NewHub(wg, getMongoDB())
 	hub.Serve("0.0.0.0:8080")
 
 	wg.Wait()

@@ -6,10 +6,11 @@ import (
 	"fenix/src/database"
 	"fenix/src/server"
 	"fenix/src/utils"
-	"fenix/src/websocket_models"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -29,35 +30,12 @@ func AssertNotEqual(t *testing.T, got, expected interface{}) {
 	t.Helper()
 
 	if reflect.DeepEqual(got, expected) {
-		t.Errorf("got %v, didnt want %v", got, expected)
+		t.Errorf("got %q, didnt want %q", got, expected)
 	}
 }
 
-type Credentials struct {
-	Username string
-	Password string
-}
-
-func RegisterClient(t *testing.T, srv *ServerFields, auth Credentials) *ClientFields {
-	t.Helper()
-
-	srv.Addr.Path = "/register"
-	cli := Connect(auth.Username, auth.Password, srv.Addr)
-
-	return cli
-}
-
-func LoginClient(t *testing.T, srv *ServerFields, auth Credentials) *ClientFields {
-	t.Helper()
-
-	srv.Addr.Path = "/login"
-	cli := Connect(auth.Username, auth.Password, srv.Addr)
-
-	return cli
-}
-
 type ServerFields struct {
-	Database *database.InMemoryDatabase
+	Database database.Database
 	Wg       *utils.WaitGroupCounter
 	Hub      *server.ServerHub
 	Server   *httptest.Server
@@ -71,41 +49,33 @@ type ClientFields struct {
 	Close func()
 }
 
-func MsgHistory(t *testing.T, cli *ClientFields, from, to int64) {
-	t.Helper()
+func intTestDB() database.Database {
+	var db database.Database
+	mongoAddr := os.Getenv("mongo_addr")
+	intTest := os.Getenv("integration_testing")
 
-	err := cli.Conn.WriteJSON(
-		websocket_models.MsgHistory{From: from, To: to}.SetType())
-	if err != nil {
-		t.Fatal(err)
+	if mongoAddr == "" || intTest == "" {
+		log.Panicf("Couldn't get database env -  mongoAddr: %q   intTest: %q", mongoAddr, intTest)
+	} else {
+		db = database.NewMongoDatabase(mongoAddr, intTest)
+		err := db.ClearDB()
+		if err != nil {
+			panic(err)
+		}
 	}
+	return db
 }
 
-func MsgSend(t *testing.T, cli *ClientFields, content string) {
-	t.Helper()
-
-	err := cli.Conn.WriteJSON(
-		websocket_models.MsgSend{Message: content}.SetType())
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func RecvMsgHistory(t *testing.T, cli *ClientFields) websocket_models.MsgHistory {
-	t.Helper()
-
-	var resProto websocket_models.MsgHistory
-	err := cli.Conn.ReadJSON(&resProto)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return resProto
-}
-
-func StartServer() *ServerFields {
+func StartServer(isIntTest ...bool) *ServerFields {
 	wg := utils.NewWaitGroupCounter()
-	db := database.NewInMemoryDatabase()
+	var db database.Database
+
+	if len(isIntTest) == 1 && isIntTest[0] {
+		db = intTestDB()
+	} else {
+		db = database.NewInMemoryDatabase()
+	}
+
 	hub := server.NewHub(wg, db)
 
 	srv := httptest.NewServer(hub.HTTPRequestHandler())
@@ -146,12 +116,25 @@ func Connect(username, password string, u url.URL) *ClientFields {
 	}
 }
 
-func StartServerAndConnect(username, password, endpoint string) (*ServerFields, *ClientFields, func()) {
-	srv := StartServer()
+func StartServerAndConnect(username string, password string, endpoint string, isIntTest ...bool) (*ServerFields, *ClientFields, func()) {
+	srv := StartServer(isIntTest...)
 	srv.Addr.Path = endpoint
 	cli := Connect(username, password, srv.Addr)
 	return srv, cli, func() {
 		cli.Close()
 		srv.Close()
+	}
+}
+
+func PopulateDB(srv *ServerFields, count int) {
+	user := database.User{Username: "gopher123"}
+	srv.Hub.Database.GetUser(&user)
+
+	for i := 0; i < count; i++ {
+		srv.Hub.Database.InsertMessage(&database.Message{
+			Content:   "Hello there!",
+			Timestamp: time.Now().UnixNano(),
+			Author:    user.UserID.Hex(),
+		})
 	}
 }

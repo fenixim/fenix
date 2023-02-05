@@ -46,6 +46,7 @@ func NewHub(wg *utils.WaitGroupCounter, database database.Database) *ServerHub {
 
 	NewMessageHandler(&hub)
 	NewIdentificationHandler(&hub)
+	NewYodelHandler(&hub)
 
 	hub.ctx, hub.Shutdown = context.WithCancel(context.Background())
 

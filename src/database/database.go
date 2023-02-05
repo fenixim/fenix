@@ -17,6 +17,11 @@ type Database interface {
 
 	InsertUser(*User) error
 	GetUser(*User) error
+
+	InsertYodel(*Yodel) error
+	GetYodel(*Yodel) error
+
+	ClearDB() error
 }
 
 type MongoDatabase struct {
@@ -25,11 +30,45 @@ type MongoDatabase struct {
 }
 
 func (db *MongoDatabase) getDatabase() *mongo.Database {
-	return db.mongo.Database(db.database)
+	mongoDB := db.mongo.Database(db.database)
+
+	if mongoDB == nil {
+		log.Panicf("Must configure mongodb to have a %v database", db.database)
+	}
+	return mongoDB
 }
 
 func (db *MongoDatabase) makeContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), time.Second*5)
+}
+
+func (db *MongoDatabase) InsertYodel(y *Yodel) error {
+	coll := db.getDatabase().Collection("yodels")
+
+	ctx, cancel := db.makeContext()
+	defer cancel()
+
+	res, err := coll.InsertOne(ctx, y)
+
+	y.YodelID = res.InsertedID.(primitive.ObjectID)
+	return err
+}
+
+func (db *MongoDatabase) GetYodel(y *Yodel) error {
+	coll := db.getDatabase().Collection("yodels")
+
+	ctx, cancel := db.makeContext()
+	defer cancel()
+	q := bson.D{{
+		"_id", bson.D{{
+			"$eq", y.YodelID,
+		}},
+	}}
+
+	res := coll.FindOne(ctx, q)
+
+	err := res.Decode(y)
+	return err
 }
 
 func (db *MongoDatabase) InsertMessage(m *Message) error {
@@ -70,7 +109,7 @@ func (db *MongoDatabase) GetMessagesBetween(a int64, b int64, limit int64) ([]*M
 }
 
 func (db *MongoDatabase) InsertUser(u *User) error {
-	coll := db.getDatabase().Collection("messages")
+	coll := db.getDatabase().Collection("users")
 
 	ctx, cancel := db.makeContext()
 	defer cancel()
@@ -121,6 +160,13 @@ func (db *MongoDatabase) DeleteUser(u *User) error {
 	_, err := coll.DeleteOne(ctx, q)
 
 	return err
+}
+
+func (db *MongoDatabase) ClearDB() error {
+	ctx, cancel := db.makeContext()
+	defer cancel()
+
+	return db.getDatabase().Drop(ctx)
 }
 
 func NewMongoDatabase(mongo_addr string, database string) *MongoDatabase {
