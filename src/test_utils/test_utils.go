@@ -62,7 +62,7 @@ func intTestDB() database.Database {
 		err := db.ClearDB()
 		if err != nil {
 			panic(err)
-		} 
+		}
 	}
 	return db
 }
