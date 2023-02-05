@@ -29,11 +29,11 @@ func getMongoDB() database.Database {
 func main() {
 	wg := utils.NewWaitGroupCounter()
 	level := os.Getenv("log_level")
-	i, err := strconv.ParseInt(level, 10, 8);
+	i, err := strconv.ParseInt(level, 10, 8)
 	if err != nil {
 		panic(err)
 	}
-	
+
 	utils.InitLogger(utils.LogLevel(i), "main.log")
 	hub := runner.NewHub(wg, getMongoDB())
 	hub.Serve("0.0.0.0:8080")
