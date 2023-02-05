@@ -8,11 +8,15 @@ Fenix is an easy to use messaging service geared towards making instant messagin
 
 ## Authentication
 
-Fenix currently uses Basic Auth to provide the server with authentication.
+Fenix currently uses token authentication.
 
-There are two endpoints to connect to:`/login` and `/register`
+There are two endpoints to authenticate with:`/login` and `/register`
 
-Both only require a Basic Auth scheme.
+### To Authenticate
+1.  Send a POST request to an authentication endpoint, with your username and password JSON encoded in the body
+2.  Fenix will respond with a JSON POST body with a token and user ID.
+3.  Send a Websocket Upgrade request to `/upgrade?t=YOUR_TOKEN_HERE&id=YOUR_ID_HERE`
+4.  Congrats!  You are securely connected to Fenix.
 
 * * *
 
