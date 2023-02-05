@@ -6,7 +6,6 @@ import (
 	"fenix/src/utils"
 	"log"
 	"os"
-
 )
 
 func getMongoDB() database.Database {
@@ -21,7 +20,7 @@ func getMongoDB() database.Database {
 		err := db.ClearDB()
 		if err != nil {
 			panic(err)
-		} 
+		}
 	}
 	return db
 }
