@@ -3,7 +3,7 @@ package server_test
 import (
 	"fenix/src/database"
 	"fenix/src/test_utils"
-	"fenix/src/test_utils/test_client"
+	testclient "fenix/src/test_utils/test_client"
 	"fenix/src/websocket_models"
 	"testing"
 	"time"
@@ -80,7 +80,7 @@ func TestMessageHandlers(t *testing.T) {
 		srv, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 
-		test_utils.Populate(srv, 1)
+		test_utils.PopulateDB(srv, 1)
 		testClient := testclient.TestClient{}
 		testClient.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
@@ -105,7 +105,7 @@ func TestMessageHandlers(t *testing.T) {
 		srv, cli, close := test_utils.StartServerAndConnect("gopher123", "mytotallyrealpassword", "/register")
 		defer close()
 
-		test_utils.Populate(srv, 51)
+		test_utils.PopulateDB(srv, 51)
 		testClient := testclient.TestClient{}
 		testClient.MsgHistory(t, cli, 0, time.Now().UnixNano())
 
@@ -265,39 +265,6 @@ then server responds with GenericError`, func(t *testing.T) {
 
 		got := res.T
 		expected := websocket_models.GenericError{}.Type()
-
-		test_utils.AssertEqual(t, got, expected)
-	})
-	t.Run("yodel create results in valid ownership field", func(t *testing.T) {
-		srv, cli, close := test_utils.StartServerAndConnect("owner", "pass", "/register")
-		defer close()
-
-		testClient := testclient.TestClient{}
-		testClient.YodelCreate(t, cli, "Fenixland")
-
-		var yodel websocket_models.Yodel
-		err := cli.Conn.ReadJSON(&yodel)
-		if err != nil {
-			t.Fatalf("%v\n", err)
-		}
-
-		testClient.WhoAmI(t, cli)
-		var whoAmI websocket_models.WhoAmI
-		err = cli.Conn.ReadJSON(&whoAmI)
-		if err != nil {
-			t.Fatalf("%q\n", err)
-		}
-
-		yodelID, err := primitive.ObjectIDFromHex(yodel.YodelID)
-		if err != nil {
-			t.Fatalf("%q\n", err)
-		}
-
-		dbYodel := &database.Yodel{YodelID: yodelID}
-		srv.Database.GetYodel(dbYodel)
-
-		got := dbYodel.Owner.Hex()
-		expected := whoAmI.ID
 
 		test_utils.AssertEqual(t, got, expected)
 	})

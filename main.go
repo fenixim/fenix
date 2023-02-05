@@ -5,41 +5,37 @@ import (
 	"fenix/src/server/runner"
 	"fenix/src/utils"
 	"log"
+	"os"
 	"strconv"
-
-	"github.com/joho/godotenv"
 )
+
+func getMongoDB() database.Database {
+	var db database.Database
+	mongoAddr := os.Getenv("mongo_addr")
+	dbName := os.Getenv("db_name")
+
+	if mongoAddr == "" || dbName == "" {
+		log.Panicf("Couldn't get database env -  mongoAddr: %q   dbName: %q", mongoAddr, dbName)
+	} else {
+		db = database.NewMongoDatabase(mongoAddr, dbName)
+		err := db.ClearDB()
+		if err != nil {
+			panic(err)
+		}
+	}
+	return db
+}
 
 func main() {
 	wg := utils.NewWaitGroupCounter()
-	env, err := godotenv.Read(".env")
-
+	level := os.Getenv("log_level")
+	i, err := strconv.ParseInt(level, 10, 8)
 	if err != nil {
-		log.Panic("No .env file for database addresses!")
+		panic(err)
 	}
 
-	mongo_addr, ok := env["mongo_addr"]
-	if !ok {
-		log.Panic("Missing mongo_addr field in .env file")
-	}
-
-	db_name, ok := env["db_name"]
-	if !ok {
-		log.Panic("Missing db_name field in .env file")
-	}
-
-	log_level, ok := env["log_level"]
-	if !ok {
-		log.Panic("Missing log_level field in .env file")
-	}
-
-	level, err := strconv.Atoi(log_level)
-	if err != nil {
-		log.Panic("log_level must be int")
-	}
-
-	utils.InitLogger(utils.LogLevel(level), "main.log")
-	hub:= runner.NewHub(wg, database.NewMongoDatabase(mongo_addr, db_name))
+	utils.InitLogger(utils.LogLevel(i), "main.log")
+	hub := runner.NewHub(wg, getMongoDB())
 	hub.Serve("0.0.0.0:8080")
 	wg.Wait()
 }

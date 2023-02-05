@@ -35,5 +35,5 @@ func NewMessage(user User, content string) *Message {
 type Yodel struct {
 	YodelID primitive.ObjectID `bson:"_id,omitempty"`
 	Name    string             `bson:"name"`
-	Owner   primitive.ObjectID `bson:"ownerid"`
+	Owner   string             `bson:"owner"`
 }

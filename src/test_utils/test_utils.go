@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -50,21 +51,30 @@ type ClientFields struct {
 	Close func()
 }
 
-func StartServer(mongoEnv ...map[string]string) *ServerFields {
-	utils.InitLogger(3)
-	wg := utils.NewWaitGroupCounter()
+func intTestDB() database.Database {
 	var db database.Database
+	mongoAddr := os.Getenv("mongo_addr")
+	intTest := os.Getenv("integration_testing")
 
-	if len(mongoEnv) != 0 {
-		addr, addrok := mongoEnv[0]["mongo_addr"]
-		intTest, intTestOk := mongoEnv[0]["integration_testing"]
-		if addrok && intTestOk {
-			db = database.NewMongoDatabase(addr, intTest)
-		}
+	if mongoAddr == "" || intTest == "" {
+		utils.ErrorLogger.Panicf("Couldn't get database env -  mongoAddr: %q   intTest: %q", mongoAddr, intTest)
+	} else {
+		db = database.NewMongoDatabase(mongoAddr, intTest)
 		err := db.ClearDB()
 		if err != nil {
 			panic(err)
 		}
+	}
+	return db
+}
+
+func StartServer(isIntTest ...bool) *ServerFields {
+	utils.InitLogger(3)
+	wg := utils.NewWaitGroupCounter()
+	var db database.Database
+
+	if len(isIntTest) == 1 && isIntTest[0] {
+		db = intTestDB()
 	} else {
 		db = database.NewInMemoryDatabase()
 	}
@@ -147,8 +157,9 @@ func Connect(username, password string, u url.URL) *ClientFields {
 	}
 }
 
-func StartServerAndConnect(username, password, endpoint string, mongoEnv ...map[string]string) (*ServerFields, *ClientFields, func()) {
-	srv := StartServer(mongoEnv...)
+func StartServerAndConnect(username string, password string, endpoint string, isIntTest ...bool) (*ServerFields, *ClientFields, func()) {
+	utils.InitLogger(3)
+	srv := StartServer(isIntTest...)
 	srv.Addr.Path = endpoint
 	cli := Connect(username, password, srv.Addr)
 	return srv, cli, func() {
@@ -157,7 +168,7 @@ func StartServerAndConnect(username, password, endpoint string, mongoEnv ...map[
 	}
 }
 
-func Populate(srv *ServerFields, count int) {
+func PopulateDB(srv *ServerFields, count int) {
 	user := database.User{Username: "gopher123"}
 	srv.Hub.Database.GetUser(&user)
 
