@@ -7,6 +7,7 @@ import (
 	"fenix/src/websocket_models"
 	"testing"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -25,7 +26,7 @@ func getEnv(t *testing.T) map[string]string {
 		t.Fatal("Missing integration_testing field in .env file")
 	}
 	return env
-		}
+}
 
 
 func TestYodelIntegration(t *testing.T) {
