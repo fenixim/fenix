@@ -6,9 +6,11 @@ import (
 	"fenix/src/database"
 	"fenix/src/server"
 	"fenix/src/utils"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -47,27 +49,32 @@ type ClientFields struct {
 	Close func()
 }
 
-func maybeGetMongoDB(mongoEnv ...map[string]string) database.Database {
+func intTestDB() database.Database {
 	var db database.Database
-	if len(mongoEnv) != 0 {
-		addr, addrok := mongoEnv[0]["mongo_addr"]
-		intTest, intTestOk := mongoEnv[0]["integration_testing"]
-		if addrok && intTestOk {
-			db = database.NewMongoDatabase(addr, intTest)
-		}
+	mongoAddr := os.Getenv("mongo_addr")
+	intTest := os.Getenv("integration_testing")
+
+	if mongoAddr == "" || intTest == "" {
+		log.Panicf("Couldn't get database env -  mongoAddr: %q   intTest: %q", mongoAddr, intTest)
+	} else {
+		db = database.NewMongoDatabase(mongoAddr, intTest)
 		err := db.ClearDB()
 		if err != nil {
 			panic(err)
-		}
-	} else {
-		db = database.NewInMemoryDatabase()
+		} 
 	}
 	return db
 }
 
-func StartServer(mongoEnv ...map[string]string) *ServerFields {
+func StartServer(isIntTest ...bool) *ServerFields {
 	wg := utils.NewWaitGroupCounter()
-	db := maybeGetMongoDB(mongoEnv...)
+	var db database.Database
+
+	if len(isIntTest) == 1 && isIntTest[0] {
+		db = intTestDB()
+	} else {
+		db = database.NewInMemoryDatabase()
+	}
 
 	hub := server.NewHub(wg, db)
 
@@ -109,8 +116,8 @@ func Connect(username, password string, u url.URL) *ClientFields {
 	}
 }
 
-func StartServerAndConnect(username, password, endpoint string, mongoEnv ...map[string]string) (*ServerFields, *ClientFields, func()) {
-	srv := StartServer(mongoEnv...)
+func StartServerAndConnect(username string, password string, endpoint string, isIntTest ...bool) (*ServerFields, *ClientFields, func()) {
+	srv := StartServer(isIntTest...)
 	srv.Addr.Path = endpoint
 	cli := Connect(username, password, srv.Addr)
 	return srv, cli, func() {
