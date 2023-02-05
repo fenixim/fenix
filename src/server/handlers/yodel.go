@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fenix/src/database"
 	"fenix/src/server"
+	"fenix/src/utils"
 	"fenix/src/websocket_models"
-	"log"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -23,22 +23,22 @@ func (y *YodelHandler) HandleYodelCreate(b []byte, c *server.Client) {
 	var yodel websocket_models.YodelCreate
 	err := json.Unmarshal(b, &yodel)
 	if err != nil {
-		log.Printf("error in decoding yodelcreate json: %v", err)
+		utils.InfoLogger.Printf("error in decoding yodelcreate json: %v", err)
 		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "JSONDecodeError"}
 		return
 	}
 
 	if yodel.Name == "" {
 		c.OutgoingPayloadQueue <- websocket_models.GenericError{
-			Error:   "yodel_name_empty",
-			Message: "Cannot create a server with no name!",
+			Error:   "YodelNameEmpty",
+			Message: "Cannot create a yodel with no name!",
 		}
 		return
 	}
 
 	db_yodel := &database.Yodel{
 		Name:  yodel.Name,
-		Owner: c.User.UserID,
+		Owner: c.User.UserID.Hex(),
 	}
 
 	err = y.hub.Database.InsertYodel(db_yodel)
@@ -60,11 +60,11 @@ func (y *YodelHandler) HandleYodelGet(b []byte, c *server.Client) {
 	err := json.Unmarshal(b, &yodelGet)
 	if err != nil {
 		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "JSONDecodeError"}
-		log.Printf("error in decoding yodelcreate json: %q\n", err)
+		utils.InfoLogger.Printf("error in decoding yodelcreate json: %q\n", err)
 		return
 	}
 	if yodelGet.YodelID == "" {
-		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "MissingID", Message: "ID field cannot be empty!"}
+		c.OutgoingPayloadQueue <- websocket_models.GenericError{Error: "MissingIDError", Message: "ID field cannot be empty!"}
 		return
 	}
 	yodelID, err := primitive.ObjectIDFromHex(yodelGet.YodelID)

@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"log"
+	"fenix/src/utils"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -10,6 +10,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+type DatabaseError struct{}
+
+func (e DatabaseError) Error() string {
+	return "DatabaseError"
+}
 
 type Database interface {
 	InsertMessage(*Message) error
@@ -33,8 +39,9 @@ func (db *MongoDatabase) getDatabase() *mongo.Database {
 	mongoDB := db.mongo.Database(db.database)
 
 	if mongoDB == nil {
-		log.Panicf("Must configure mongodb to have a %v database", db.database)
+		utils.ErrorLogger.Panicf("Must configure mongodb to have a %v database", db.database)
 	}
+
 	return mongoDB
 }
 
@@ -115,8 +122,12 @@ func (db *MongoDatabase) InsertUser(u *User) error {
 	defer cancel()
 
 	res, err := coll.InsertOne(ctx, u)
+	if err != nil {
+		return err
+	}
+
 	u.UserID = res.InsertedID.(primitive.ObjectID)
-	return err
+	return nil
 }
 
 func (db *MongoDatabase) GetUser(u *User) error {
@@ -135,7 +146,8 @@ func (db *MongoDatabase) GetUser(u *User) error {
 			}},
 		}}
 	} else {
-		log.Panic("GetUser needs fields in User!")
+		utils.ErrorLogger.Println("GetUser needs fields in User!")
+		return DatabaseError{}
 	}
 
 	ctx, cancel := db.makeContext()
@@ -179,7 +191,7 @@ func NewMongoDatabase(mongo_addr string, database string) *MongoDatabase {
 	c, err := mongo.Connect(ctx, clientOptions)
 
 	if err != nil {
-		log.Fatalf("Error connecting to mongoDB: %v", err)
+		utils.ErrorLogger.Panicf("Error connecting to mongoDB: %v", err)
 	}
 
 	db := MongoDatabase{

@@ -7,26 +7,8 @@ import (
 	"fenix/src/websocket_models"
 	"testing"
 
-	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-func getEnv(t *testing.T) map[string]string {
-	env, err := godotenv.Read("../../../.env")
-	if err != nil {
-		t.Fatalf("No .env file in project root %v", err)
-	}
-	_, ok := env["mongo_addr"]
-	if !ok {
-		t.Fatal("Missing mongo_addr field in .env file")
-	}
-
-	_, ok = env["integration_testing"]
-	if !ok {
-		t.Fatal("Missing integration_testing field in .env file")
-	}
-	return env
-}
 
 func TestYodelIntegration(t *testing.T) {
 	if testing.Short() {
@@ -56,19 +38,19 @@ func TestYodelIntegration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q\n", err)
 		}
-
+		
 		testClient.WhoAmI(t, cli)
 		var whoAmI websocket_models.WhoAmI
-		cli.Conn.ReadJSON(&whoAmI)
-		userID, err := primitive.ObjectIDFromHex(whoAmI.ID)
+		err = cli.Conn.ReadJSON(&whoAmI)
 		if err != nil {
-			t.Fatalf("%q\n", err)
+			t.Fatalf("%v\n", err)
 		}
+
 
 		expected := &database.Yodel{
 			YodelID: yodel_ID,
 			Name:    "Fenixland",
-			Owner:   userID,
+			Owner:   whoAmI.ID,
 		}
 		test_utils.AssertEqual(t, got, expected)
 	})

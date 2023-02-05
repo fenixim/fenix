@@ -68,6 +68,7 @@ func intTestDB() database.Database {
 }
 
 func StartServer(isIntTest ...bool) *ServerFields {
+	utils.InitLogger(3)
 	wg := utils.NewWaitGroupCounter()
 	var db database.Database
 
@@ -118,6 +119,7 @@ func Connect(username, password string, u url.URL) *ClientFields {
 }
 
 func StartServerAndConnect(username string, password string, endpoint string, isIntTest ...bool) (*ServerFields, *ClientFields, func()) {
+	utils.InitLogger(3)
 	srv := StartServer(isIntTest...)
 	srv.Addr.Path = endpoint
 	cli := Connect(username, password, srv.Addr)

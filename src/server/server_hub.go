@@ -7,7 +7,6 @@ import (
 	"fenix/src/database"
 	"fenix/src/utils"
 	"fenix/src/websocket_models"
-	"log"
 	"sync"
 
 	"net/http"
@@ -78,9 +77,10 @@ func (hub *ServerHub) Run() {
 	}
 
 	<-hub.Ctx.Done()
+	utils.InfoLogger.Printf("Server shutting down...")
+
 	hub.Clients.Range(func(key, value interface{}) bool {
 		client := value.(*Client)
-		log.Printf("Closing client %v", client.User.UserID.Hex())
 		client.Close("")
 		return true
 	})
@@ -94,7 +94,8 @@ func (hub *ServerHub) Run() {
 func (hub *ServerHub) upgrade(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, http.Header{"Fenix-Version": []string{version}})
 	if err != nil {
-		log.Println(err)
+		utils.InfoLogger.Printf("Error upgrading connection to websocket: %q", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -158,7 +159,7 @@ func (hub *ServerHub) Register(w http.ResponseWriter, r *http.Request) {
 	err = hub.Database.InsertUser(u)
 
 	if err != nil {
-		log.Printf("Error inserting user: %v", err)
+		utils.ErrorLogger.Printf("Error inserting user (%q:%q): %q", u.UserID.Hex(), u.Username, err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
@@ -176,9 +177,9 @@ func (hub *ServerHub) Serve(addr string) {
 
 	err := hub.Wg.Add(1, "ServerHub_ListenAndServe")
 	if err != nil {
-		log.Fatalf("Error adding goroutine to waitgroup: %v", err)
+		utils.ErrorLogger.Fatalf("Error adding goroutine to waitgroup: %v", err)
 	}
-	log.Printf("Listening on %v", addr)
+	utils.InfoLogger.Printf("Listening on %v", addr)
 	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(err)

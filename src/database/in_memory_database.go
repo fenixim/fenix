@@ -1,7 +1,7 @@
 package database
 
 import (
-	"log"
+	"fenix/src/utils"
 	"sort"
 	"sync"
 	"time"
@@ -135,7 +135,8 @@ func (db *InMemoryDatabase) GetUser(req *User) error {
 		}
 		return DoesNotExist{}
 	} else {
-		log.Panic("GetUser needs fields in User!")
+		utils.ErrorLogger.Println("GetUser needs fields in User!")
+		return DatabaseError{}
 	}
 
 	return nil
