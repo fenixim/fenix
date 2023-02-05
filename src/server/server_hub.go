@@ -7,7 +7,6 @@ import (
 	"fenix/src/database"
 	"fenix/src/utils"
 	"fenix/src/websocket_models"
-	"fmt"
 	"log"
 	"sync"
 
@@ -25,34 +24,13 @@ var version = "0.1"
 
 // Main server class.  Should be initialized with NewHub()
 type ServerHub struct {
-	clients           *sync.Map
-	broadcast_payload chan websocket_models.JSONModel
-	ctx               context.Context
+	Clients           *sync.Map
+	Broadcast_payload chan websocket_models.JSONModel
+	Ctx               context.Context
 	Shutdown          context.CancelFunc
 	Handlers          map[string]func([]byte, *Client)
 	Wg                *utils.WaitGroupCounter
 	Database          database.Database
-}
-
-// Function to make and start an instance of ServerHub
-func NewHub(wg *utils.WaitGroupCounter, database database.Database) *ServerHub {
-	hub := ServerHub{
-		clients:           &sync.Map{},
-		broadcast_payload: make(chan websocket_models.JSONModel),
-		Handlers:          make(map[string]func([]byte, *Client)),
-		Wg:                wg,
-		Database:          database,
-	}
-
-	NewMessageHandler(&hub)
-	NewIdentificationHandler(&hub)
-	NewYodelHandler(&hub)
-
-	hub.ctx, hub.Shutdown = context.WithCancel(context.Background())
-
-	go hub.run()
-
-	return &hub
 }
 
 // Registers a message handler to be called when a type of message is recieved.
@@ -73,8 +51,8 @@ func (hub *ServerHub) broadcast() (context.Context, context.CancelFunc) {
 	go func() {
 		for {
 			select {
-			case d := <-hub.broadcast_payload:
-				hub.clients.Range(func(key, value interface{}) bool {
+			case d := <-hub.Broadcast_payload:
+				hub.Clients.Range(func(key, value interface{}) bool {
 					value.(*Client).OutgoingPayloadQueue <- d
 					return true
 				})
@@ -91,7 +69,7 @@ func (hub *ServerHub) broadcast() (context.Context, context.CancelFunc) {
 
 // Starts all goroutines for server to run.
 // Will stop all goroutines when hub.Shutdown() is called.
-func (hub *ServerHub) run() {
+func (hub *ServerHub) Run() {
 	_, broadcastCancel := hub.broadcast()
 
 	err := hub.Wg.Add(1, "ServerHub_Run")
@@ -99,8 +77,8 @@ func (hub *ServerHub) run() {
 		panic(err)
 	}
 
-	<-hub.ctx.Done()
-	hub.clients.Range(func(key, value interface{}) bool {
+	<-hub.Ctx.Done()
+	hub.Clients.Range(func(key, value interface{}) bool {
 		client := value.(*Client)
 		log.Printf("Closing client %v", client.User.UserID.Hex())
 		client.Close("")
@@ -124,7 +102,7 @@ func (hub *ServerHub) upgrade(w http.ResponseWriter, r *http.Request) {
 
 	client := &Client{hub: hub, conn: conn, User: database.User{Username: nick}}
 	client.New()
-	hub.clients.Store(client.User.UserID.Hex(), client)
+	hub.Clients.Store(client.User.UserID.Hex(), client)
 }
 
 // HTTP method to log in and upgrade a user's connection.
@@ -180,7 +158,7 @@ func (hub *ServerHub) Register(w http.ResponseWriter, r *http.Request) {
 	err = hub.Database.InsertUser(u)
 
 	if err != nil {
-		fmt.Errorf("Error inserting user: %v", err)
+		log.Printf("Error inserting user: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 

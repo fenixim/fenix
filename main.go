@@ -2,7 +2,7 @@ package main
 
 import (
 	"fenix/src/database"
-	"fenix/src/server"
+	"fenix/src/server/runner"
 	"fenix/src/utils"
 	"log"
 	"os"
@@ -27,8 +27,8 @@ func getMongoDB() database.Database {
 
 func main() {
 	wg := utils.NewWaitGroupCounter()
-
-	hub := server.NewHub(wg, getMongoDB())
+	
+	hub := runner.NewHub(wg, getMongoDB())
 	hub.Serve("0.0.0.0:8080")
 
 	wg.Wait()

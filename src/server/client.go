@@ -40,7 +40,7 @@ func (c *Client) Close(wg_id string) {
 	}
 
 	c.Closed = true
-	c.hub.clients.Delete(c.User.UserID)
+	c.hub.Clients.Delete(c.User.UserID)
 
 	c.conn.Close()
 }
