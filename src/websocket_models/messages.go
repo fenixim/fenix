@@ -6,6 +6,7 @@ import "fenix/src/database"
 type MsgSend struct {
 	T       string `json:"type"`
 	Message string `json:"msg"`
+	Nonce   string `json:"n"`
 }
 
 func (b MsgSend) Type() string {
@@ -17,9 +18,14 @@ func (b MsgSend) SetType() JSONModel {
 	return b
 }
 
+func (n MsgSend) GetNonce() string {
+	return n.Nonce
+}
+
 // Sends a message to the clients.
 type MsgBroadcast struct {
-	T string `json:"type"`
+	T     string `json:"type"`
+	Nonce string `json:"n"`
 
 	MessageID string `json:"m_id"`
 	Author    Author `json:"author"`
@@ -35,6 +41,9 @@ func (b MsgBroadcast) SetType() JSONModel {
 	b.T = b.Type()
 	return b
 }
+func (n MsgBroadcast) GetNonce() string {
+	return n.Nonce
+}
 
 type Author struct {
 	ID       string
@@ -42,7 +51,9 @@ type Author struct {
 }
 
 type MsgHistory struct {
-	T        string              `json:"type"`
+	T     string `json:"type"`
+	Nonce string `json:"n"`
+
 	From     int64               `json:"from,omitempty"`
 	To       int64               `json:"to,omitempty"`
 	Messages []*database.Message `json:"messages,omitempty"`
@@ -56,4 +67,7 @@ func (m MsgHistory) Type() string {
 func (b MsgHistory) SetType() JSONModel {
 	b.T = b.Type()
 	return b
+}
+func (n MsgHistory) GetNonce() string {
+	return n.Nonce
 }

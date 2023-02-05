@@ -4,19 +4,26 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
+	"encoding/base64"
+	"encoding/json"
 	"fenix/src/database"
 	"fenix/src/utils"
 	"fenix/src/websocket_models"
 	"sync"
+	"time"
 
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 var version = "0.1"
@@ -30,6 +37,7 @@ type ServerHub struct {
 	Handlers          map[string]func([]byte, *Client)
 	Wg                *utils.WaitGroupCounter
 	Database          database.Database
+	Tickets           *sync.Map
 }
 
 // Registers a message handler to be called when a type of message is recieved.
@@ -51,8 +59,9 @@ func (hub *ServerHub) broadcast() (context.Context, context.CancelFunc) {
 		for {
 			select {
 			case d := <-hub.Broadcast_payload:
-				hub.Clients.Range(func(key, value interface{}) bool {
-					value.(*Client).OutgoingPayloadQueue <- d
+				hub.Clients.Range(
+					func(key, value interface{}) bool {
+					go func() {value.(*Client).OutgoingPayloadQueue <- d}()
 					return true
 				})
 
@@ -92,37 +101,104 @@ func (hub *ServerHub) Run() {
 // Function to upgrade http connection to websocket
 // Also makes new client.
 func (hub *ServerHub) upgrade(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, http.Header{"Fenix-Version": []string{version}})
+	ticket := r.URL.Query().Get("t")
+	userID := r.URL.Query().Get("id")
+
+	if ticket == "" || userID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	vTicket, ok := hub.Tickets.LoadAndDelete(userID)
+
+	if !ok {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	res := subtle.ConstantTimeCompare([]byte(vTicket.(string)), []byte(ticket))
+	if res == 0 {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	conn, err := websocket.Upgrade(w, r, http.Header{}, 1024, 1024)
 	if err != nil {
 		utils.InfoLogger.Printf("Error upgrading connection to websocket: %q", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	nick, _, _ := r.BasicAuth()
+	id, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		utils.InfoLogger.Printf("Error parsing objectid: %q", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-	client := &Client{hub: hub, conn: conn, User: database.User{Username: nick}}
+	u := database.User{UserID: id}
+	hub.Database.GetUser(&u)
+	client := &Client{hub: hub, conn: conn, User: database.User{Username: u.Username}}
 	client.New()
 	hub.Clients.Store(client.User.UserID.Hex(), client)
+}
+
+func (hub *ServerHub) createToken(u *database.User) []byte {
+	ticket := make([]byte, 32)
+
+	rand.Read(ticket)
+	encodedTicket := base64.URLEncoding.EncodeToString(ticket)
+
+	hub.Tickets.Store(u.UserID.Hex(), encodedTicket)
+	go func() {
+		time.Sleep(5 * time.Second)
+		hub.Tickets.Delete(u.UserID)
+	}()
+
+	b, err := json.Marshal(map[string]interface{}{"userID": u.UserID.Hex(), "username": u.Username, "ticket": encodedTicket})
+	if err != nil {
+		utils.InfoLogger.Printf("Error marshalling JSON: %q", err)
+		return nil
+	}
+	return b
 }
 
 // HTTP method to log in and upgrade a user's connection.
 // Uses BasicAuth header
 func (hub *ServerHub) Login(w http.ResponseWriter, r *http.Request) {
-	username, password, ok := r.BasicAuth()
-	if !ok {
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	var body map[string]string
+	err := decoder.Decode(&body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	username, uok := body["username"]
+	password, pok := body["password"]
+
+	if !uok || !pok {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	u := &database.User{Username: username}
 
-	err := hub.Database.GetUser(u)
+	err = hub.Database.GetUser(u)
+
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	p := &database.User{Password: []byte(password), Salt: u.Salt}
+
+	p := &database.User{Password: []byte(password), Salt: u.Salt, Username: username}
 	p.HashPassword()
 
 	res := subtle.ConstantTimeCompare(p.Password, u.Password)
@@ -131,18 +207,40 @@ func (hub *ServerHub) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hub.upgrade(w, r)
+	b := hub.createToken(u)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	w.Header().Set("Access-Control-Max-Age", "86400")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Write(b)
 }
 
 func (hub *ServerHub) Register(w http.ResponseWriter, r *http.Request) {
-	username, password, ok := r.BasicAuth()
-	if !ok {
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	decoder := json.NewDecoder(r.Body)
+	var body map[string]string
+	err := decoder.Decode(&body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	username, uok := body["username"]
+	password, pok := body["password"]
+
+	if !uok || !pok {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	u := &database.User{Username: username}
-	err := hub.Database.GetUser(u)
+	err = hub.Database.GetUser(u)
 
 	// If user exists, dont let the client re-register a user.
 	if err == nil {
@@ -161,9 +259,16 @@ func (hub *ServerHub) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		utils.ErrorLogger.Printf("Error inserting user (%q:%q): %q", u.UserID.Hex(), u.Username, err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
-	hub.upgrade(w, r)
+	b := hub.createToken(u)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST")
+	w.Header().Set("Access-Control-Max-Age", "86400")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Write(b)
+
 }
 
 // Serves http server on addr.
@@ -193,6 +298,8 @@ func (hub *ServerHub) HTTPRequestHandler() http.HandlerFunc {
 			hub.Login(w, r)
 		} else if r.URL.Path == "/register" {
 			hub.Register(w, r)
+		} else if r.URL.Path == "/upgrade" {
+			hub.upgrade(w, r)
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}

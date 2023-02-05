@@ -76,7 +76,7 @@ func TestMessageHandlers(t *testing.T) {
 		test_utils.AssertEqual(t, got, expected)
 	})
 
-	t.Run("msg_history has correct length", func(t *testing.T) {
+	t.Run("message history length", func(t *testing.T) {
 		srv, cli, closeConn := test_utils.StartServerAndConnect("gopher123", "pass", "/register")
 		defer closeConn()
 

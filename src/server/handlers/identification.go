@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fenix/src/server"
 	"fenix/src/websocket_models"
 )
@@ -13,8 +14,11 @@ func (i *IdentificationHandler) init() {
 	i.hub.RegisterHandler("whoami", i.HandleWhoAmI)
 }
 
-func (i *IdentificationHandler) HandleWhoAmI(_ []byte, c *server.Client) {
+func (i *IdentificationHandler) HandleWhoAmI(b []byte, c *server.Client) {
+	whoami := &websocket_models.WhoAmI{}
+	json.Unmarshal(b, whoami)
 	c.OutgoingPayloadQueue <- websocket_models.WhoAmI{
+		Nonce:    whoami.GetNonce(),
 		ID:       c.User.UserID.Hex(),
 		Username: c.User.Username,
 	}

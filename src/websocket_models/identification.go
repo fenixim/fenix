@@ -3,6 +3,7 @@ package websocket_models
 // Base interface for all messages.
 type JSONModel interface {
 	Type() string
+	GetNonce() string
 	SetType() JSONModel
 }
 
@@ -11,6 +12,7 @@ type WhoAmI struct {
 	T        string `json:"type"`
 	ID       string `json:"id"`
 	Username string `json:"nick"`
+	Nonce    string `json:"n"`
 }
 
 func (b WhoAmI) Type() string {
@@ -22,8 +24,13 @@ func (b WhoAmI) SetType() JSONModel {
 	return b
 }
 
+func (n WhoAmI) GetNonce() string {
+	return n.Nonce
+}
+
 type GenericError struct {
 	T       string `json:"type"`
+	Nonce   string `json:"n"`
 	Error   string `json:"error"`
 	Message string `json:"msg"`
 }
@@ -35,4 +42,7 @@ func (e GenericError) Type() string {
 func (b GenericError) SetType() JSONModel {
 	b.T = b.Type()
 	return b
+}
+func (n GenericError) GetNonce() string {
+	return n.Nonce
 }

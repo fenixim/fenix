@@ -37,6 +37,5 @@ func main() {
 	utils.InitLogger(utils.LogLevel(i), "main.log")
 	hub := runner.NewHub(wg, getMongoDB())
 	hub.Serve("0.0.0.0:8080")
-
 	wg.Wait()
 }

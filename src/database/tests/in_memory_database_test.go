@@ -11,14 +11,14 @@ import (
 )
 
 type testCase struct {
-	author  string
+	author  database.User
 	content string
 }
 
 func TestBasicOperations(t *testing.T) {
 	t.Run("message has id", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
-		msg := database.NewMessage("gopher", "hello")
+		msg := database.NewMessage(database.User{}, "hello")
 		db.InsertMessage(msg)
 
 		test_utils.AssertNotEqual(t, msg.MessageID, primitive.NilObjectID)
@@ -35,7 +35,7 @@ func TestBasicOperations(t *testing.T) {
 
 	t.Run("message history within limit", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
-		db.InsertMessage(database.NewMessage("gopher", "hello"))
+		db.InsertMessage(database.NewMessage(database.User{}, "hello"))
 
 		history, _ := db.GetMessagesBetween(0, time.Now().UnixNano(), 0)
 		got := len(history)
@@ -49,7 +49,7 @@ func TestBasicOperations(t *testing.T) {
 			db := database.NewInMemoryDatabase()
 			for j := 0; j < i; j++ {
 				db.InsertMessage(
-					database.NewMessage("gopher", "hello"))
+					database.NewMessage(database.User{}, "hello"))
 			}
 
 			history, _ := db.GetMessagesBetween(0, time.Now().UnixNano(), 50)
@@ -61,8 +61,8 @@ func TestBasicOperations(t *testing.T) {
 
 	t.Run("limit takes most recent messages", func(testing *testing.T) {
 		db := database.NewInMemoryDatabase()
-		db.InsertMessage(database.NewMessage("gopher", "yay"))
-		db.InsertMessage(database.NewMessage("kryptic", "fair"))
+		db.InsertMessage(database.NewMessage(database.User{}, "yay"))
+		db.InsertMessage(database.NewMessage(database.User{}, "fair"))
 
 		history, _ := db.GetMessagesBetween(0, time.Now().UnixNano(), 1)
 		got := history[0].Content
@@ -73,8 +73,8 @@ func TestBasicOperations(t *testing.T) {
 
 func TestMessages(t *testing.T) {
 	testCases := []testCase{
-		{"gopher", "hello"},
-		{"bloblet", "yay"},
+		{database.User{Username: "gopher"}, "hello"},
+		{database.User{Username: "bloblet"}, "yay"},
 	}
 
 	for _, test := range testCases {
@@ -100,13 +100,13 @@ func TestMessages(t *testing.T) {
 
 func TestTimestamps(t *testing.T) {
 	db := database.NewInMemoryDatabase()
-	msg1 := database.NewMessage("gopher", "hello")
+	msg1 := database.NewMessage(database.User{Username: "gopher"}, "hello")
 	time.Sleep(2 * time.Millisecond)
-	msg2 := database.NewMessage("billy", "bye")
+	msg2 := database.NewMessage(database.User{Username: "billy"}, "bye")
 	time.Sleep(2 * time.Millisecond)
-	msg3 := database.NewMessage("luk", "go")
+	msg3 := database.NewMessage(database.User{Username: "luk"}, "go")
 	time.Sleep(2 * time.Millisecond)
-	msg4 := database.NewMessage("josiah", "tdd")
+	msg4 := database.NewMessage(database.User{Username: "josiah"}, "tdd")
 
 	db.InsertMessage(msg1)
 	db.InsertMessage(msg2)

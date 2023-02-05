@@ -17,6 +17,7 @@ func NewHub(wg *utils.WaitGroupCounter, database database.Database) *server.Serv
 		Handlers:          make(map[string]func([]byte, *server.Client)),
 		Wg:                wg,
 		Database:          database,
+		Tickets:  &sync.Map{},
 	}
 
 	handlers.NewMessageHandler(&hub)
